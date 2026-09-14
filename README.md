@@ -254,3 +254,9 @@ src/
   created under their uid and the placeholder is retired.
 - Alert dismissals are stored per browser (`localStorage`) — that is the right
   scope for "I have seen this".
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
