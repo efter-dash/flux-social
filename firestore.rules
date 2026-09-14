@@ -1,0 +1,175 @@
+rules_version = '2';
+
+// FLUX security rules.
+//
+// The whole model rests on one fact: a signed-in person's member document is
+// stored at workspaces/{ws}/members/{their uid}. That lets every rule answer
+// "what is this caller allowed to do in this workspace" with a single get(),
+// server-side, where the client cannot lie about it.
+//
+// Deploy with:  firebase deploy --only firestore:rules
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ---------------------------------------------------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function memberPath(ws) {
+      return /databases/$(database)/documents/workspaces/$(ws)/members/$(request.auth.uid);
+    }
+
+    function isMember(ws) {
+      return signedIn() && exists(memberPath(ws));
+    }
+
+    function memberData(ws) {
+      return get(memberPath(ws)).data;
+    }
+
+    function level(ws) {
+      return memberData(ws).access;
+    }
+
+    // Inactive people keep read access to history but stop being able to write.
+    function isActive(ws) {
+      return memberData(ws).active == true;
+    }
+
+    function isAdmin(ws) {
+      return isMember(ws) && (level(ws) == 'admin' || level(ws) == 'owner');
+    }
+
+    function isOwner(ws) {
+      return isMember(ws) && level(ws) == 'owner';
+    }
+
+    function canEdit(ws) {
+      return isMember(ws) && isActive(ws) && level(ws) != 'viewer';
+    }
+
+    function workspaceData(ws) {
+      return get(/databases/$(database)/documents/workspaces/$(ws)).data;
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ---- workspaces ------------------------------------------------------
+
+    match /workspaces/{ws} {
+      // A single workspace can be read by anyone signed in — that is what makes
+      // "join with a code" possible before you are a member. Listing is closed,
+      // so the only way to reach a workspace is to already know its random id,
+      // which the joinCodes mapping hands out in exchange for a valid code.
+      // Nothing sensitive lives on this document; the actual work is in the
+      // subcollections below, which are members-only.
+      allow get: if signedIn();
+      allow list: if false;
+
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+
+      // Admins may change anything. Ordinary members may only bump the ID
+      // counters, which is what creating content, a task or an idea requires.
+      allow update: if isAdmin(ws)
+                    || (canEdit(ws) && changedKeys().hasOnly(['counters']));
+
+      allow delete: if isOwner(ws);
+
+      // ---- people --------------------------------------------------------
+
+      match /members/{memberId} {
+        allow read: if isMember(ws);
+
+        // Two ways a member document appears:
+        //  1. an admin adds someone to the directory, or
+        //  2. a person joins with the code — they may only create their OWN row
+        //     (id == uid) at exactly the access level the workspace grants, so
+        //     the join flow cannot be used to award yourself admin.
+        allow create: if isAdmin(ws)
+                      || (
+                        signedIn()
+                        && memberId == request.auth.uid
+                        && request.resource.data.userId == request.auth.uid
+                        && workspaceData(ws).joinEnabled == true
+                        && request.resource.data.access == workspaceData(ws).joinAccess
+                      )
+                      // Bootstrapping: the person creating the workspace writes
+                      // their own owner row in the same batch, before any member
+                      // document exists to check against.
+                      || (
+                        signedIn()
+                        && memberId == request.auth.uid
+                        && !exists(/databases/$(database)/documents/workspaces/$(ws))
+                      );
+
+        // People may edit their own profile but never their own access level.
+        allow update: if isAdmin(ws)
+                      || (
+                        isMember(ws)
+                        && memberId == request.auth.uid
+                        && request.resource.data.access == resource.data.access
+                      );
+
+        allow delete: if isAdmin(ws);
+      }
+
+      // ---- the work ------------------------------------------------------
+
+      match /content/{docId} {
+        allow read: if isMember(ws);
+        allow create, update: if canEdit(ws);
+        allow delete: if isAdmin(ws);
+      }
+
+      match /tasks/{docId} {
+        allow read: if isMember(ws);
+        allow write: if canEdit(ws);
+      }
+
+      match /ideas/{docId} {
+        allow read: if isMember(ws);
+        allow write: if canEdit(ws);
+      }
+
+      match /reviews/{docId} {
+        allow read: if isMember(ws);
+        allow write: if canEdit(ws);
+      }
+    }
+
+    // ---- join codes ------------------------------------------------------
+
+    // A tiny public mapping: CODE -> workspaceId. Readable one document at a
+    // time by anyone signed in, never listable, so codes cannot be harvested.
+    match /joinCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+
+      // Created alongside a brand-new workspace, when no membership exists yet
+      // to check against; from then on only an admin of the workspace it points
+      // at can repoint or remove it.
+      allow create: if signedIn();
+      allow update, delete: if isAdmin(resource.data.workspaceId);
+    }
+
+    // ---- per-user index --------------------------------------------------
+
+    // "Which workspaces can I open." Writing a row here grants nothing on its
+    // own — every actual permission above is read from the member document
+    // inside the workspace, so a forged entry just produces an empty workspace.
+    match /users/{uid}/memberships/{ws} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ---- default deny ----------------------------------------------------
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

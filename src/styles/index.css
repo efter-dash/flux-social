@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  FLUX design tokens — "Obsidian Flux"
+  ------------------------------------
+  Values are space-separated RGB channels so Tailwind's opacity modifiers work
+  (e.g. bg-panel/60, text-emerald/70). Mapping back to the source design system:
+
+    --void    surface-container-lowest  #060e20   deepest layer
+    --base    surface / background      #0b1326   app canvas
+    --sunken  surface-container-low     #131b2e   inset fields, table stripes
+    --panel   surface-container         #171f33   cards, widgets, sidebar
+    --raised  surface-container-high    #222a3d   hover, nested surfaces
+    --overlay surface-container-highest #2d3449   menus, modals, sheets
+    --ink     on-surface                #dae2fd
+    --ink-dim on-surface-variant        #c1c6d7
+    --ink-faint outline                 #8b90a0
+    --line    outline-variant           #414755
+    --primary primary                   #adc6ff   accent text, active states
+    --accent  primary-container         #4b8eff   solid primary actions
+    --violet  secondary                 #c0c1ff   scheduled
+    --emerald tertiary                  #4edea3   approved / published
+    --amber   (status: pending)         #ffc46b
+    --danger  error                     #ffb4ab   overdue / blocked
+*/
+
+:root {
+  --void: 6 14 32;
+  --base: 11 19 38;
+  --sunken: 19 27 46;
+  --panel: 23 31 51;
+  --raised: 34 42 61;
+  --overlay: 45 52 73;
+
+  --ink: 218 226 253;
+  --ink-dim: 193 198 215;
+  --ink-faint: 139 144 160;
+
+  --line: 65 71 85;
+
+  --primary: 173 198 255;
+  --on-primary: 0 46 105;
+  --accent: 75 142 255;
+  --on-accent: 255 255 255;
+
+  --violet: 192 193 255;
+  --emerald: 78 222 163;
+  --amber: 255 196 107;
+  --danger: 255 180 171;
+
+  color-scheme: dark;
+}
+
+* {
+  border-color: rgb(var(--line) / 0.55);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-base text-ink font-sans text-body-md antialiased;
+  /* A single, very soft radial lift keeps the "infinite void" from reading flat. */
+  background-image: radial-gradient(120% 80% at 50% -10%, rgb(var(--accent) / 0.08), transparent 60%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular figures everywhere numbers are compared in a column. */
+.numeral {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ---------- Focus ---------- */
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* ---------- Scrollbars ---------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--overlay)) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--overlay));
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--line));
+}
+
+/* ---------- Reusable component classes ---------- */
+
+@layer components {
+  /* The label style used on every widget header and metadata row. */
+  .label-caps {
+    @apply font-mono text-label-caps uppercase text-ink-faint;
+  }
+
+  .card {
+    @apply rounded-lg border border-line/60 bg-panel;
+  }
+
+  .card-glass {
+    @apply rounded-lg border border-white/10 bg-panel/70 shadow-ambient backdrop-blur-[12px];
+  }
+
+  /* Sticky headers keep context over scrolling data. */
+  .glass-bar {
+    @apply border-line/60 bg-base/80 backdrop-blur-[12px];
+  }
+
+  .field {
+    @apply w-full rounded border border-line/70 bg-sunken px-3 py-2 text-body-sm text-ink
+      placeholder:text-ink-faint transition-colors duration-150
+      focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/20;
+  }
+
+  .field-sm {
+    @apply w-full rounded border border-line/70 bg-sunken px-2.5 py-1.5 text-body-xs text-ink
+      placeholder:text-ink-faint transition-colors duration-150
+      focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/20;
+  }
+
+  /* Hide native select chrome; the wrapper draws its own chevron. */
+  .field-select {
+    @apply appearance-none bg-none pr-8;
+  }
+
+  .row-hover {
+    @apply transition-colors duration-150 hover:bg-raised/60;
+  }
+
+  .divide-hair > * + * {
+    @apply border-t border-white/5;
+  }
+}
+
+@layer utilities {
+  /* Fade the bottom of a horizontally scrolling strip so it reads as scrollable. */
+  .mask-fade-r {
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
