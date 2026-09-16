@@ -11,7 +11,9 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from '@/components/ui/Icon'
+import { FluxLogo } from '@/components/ui/FluxLogo'
 import { Avatar, Button, IconButton, Spinner, StatusDot, cx } from '@/components/ui/primitives'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { Sheet } from '@/components/ui/Overlay'
 import { useStore } from '@/state/store'
 import { APP_NAME, APP_TAGLINE } from '@/brand'
@@ -83,6 +85,10 @@ export function AppShell() {
         </nav>
 
         <div className="border-t border-line/50 p-3">
+          <div className="mb-2.5 flex items-center justify-between rounded border border-line/40 bg-sunken/40 px-2.5 py-1.5">
+            <span className="text-body-xs text-ink-dim">Theme</span>
+            <ThemeToggle variant="segmented" />
+          </div>
           <button
             onClick={() => navigate('/settings')}
             className="flex w-full items-center gap-2.5 rounded p-2 text-left transition-colors hover:bg-raised/60"
@@ -126,21 +132,23 @@ export function AppShell() {
               </span>
             </div>
 
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex items-center gap-2 sm:gap-2.5">
               <button
                 onClick={() => setPaletteOpen(true)}
-                className="hidden items-center gap-2 rounded border border-line/60 bg-sunken px-3 py-1.5 text-body-xs text-ink-faint transition-colors hover:border-line hover:text-ink-dim lg:flex"
+                className="hidden items-center gap-2 rounded-lg border border-line/60 bg-sunken/60 px-3 py-1.5 text-body-xs text-ink-faint transition-all hover:border-line hover:bg-raised/50 hover:text-ink lg:flex"
               >
                 <Icon name="search" size={15} />
                 Search
-                <kbd className="ml-2 rounded border border-line/60 px-1 font-mono text-label-micro">⌘K</kbd>
+                <kbd className="ml-2 rounded border border-line/60 bg-panel px-1.5 py-0.5 font-mono text-label-micro">⌘K</kbd>
               </button>
               <IconButton icon="search" label="Search" onClick={() => setPaletteOpen(true)} className="lg:hidden" />
+
+              <ThemeToggle />
 
               <div className="relative">
                 <IconButton icon="bell" label="Notifications" onClick={() => setNotifOpen(true)} />
                 {alerts.length > 0 && (
-                  <span className="pointer-events-none absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-mono text-[10px] font-semibold text-void">
+                  <span className="pointer-events-none absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-mono text-[10px] font-semibold text-white">
                     {alerts.length > 9 ? '9+' : alerts.length}
                   </span>
                 )}
@@ -208,6 +216,10 @@ export function AppShell() {
           ))}
         </ul>
         <div className="mt-4 flex items-center justify-between rounded-md border border-line/50 bg-panel p-3">
+          <span className="text-body-sm text-ink font-medium">Theme</span>
+          <ThemeToggle variant="segmented" />
+        </div>
+        <div className="mt-2 flex items-center justify-between rounded-md border border-line/50 bg-panel p-3">
           <span className="flex min-w-0 items-center gap-2.5">
             <Avatar name={me?.name ?? user?.name ?? '?'} size={32} />
             <span className="min-w-0">
@@ -274,14 +286,14 @@ export function AppShell() {
 
 // ---------------------------------------------------------------------------
 
-function BrandMark({ size = 34 }: { size?: number }) {
+function BrandMark({ size = 30 }: { size?: number }) {
   return (
     <span
-      className="flex shrink-0 items-center justify-center rounded-md bg-accent/15 text-primary"
-      style={{ width: size, height: size, boxShadow: 'inset 0 0 0 1px rgb(var(--accent) / 0.35)' }}
+      className="flex shrink-0 items-center justify-center text-ink"
+      style={{ width: size, height: size }}
       aria-hidden="true"
     >
-      <Icon name="sparkle" size={Math.round(size * 0.55)} filled />
+      <FluxLogo size={size} />
     </span>
   )
 }

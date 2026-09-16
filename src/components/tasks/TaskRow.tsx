@@ -12,6 +12,7 @@ import {
   Avatar,
   Button,
   Field,
+  IconButton,
   Input,
   OptionSelect,
   Select,
@@ -48,7 +49,7 @@ export function TaskRow({ task, compact = false }: { task: TaskItem; compact?: b
           className={cx(
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-all duration-150',
             done
-              ? 'border-emerald bg-emerald text-void'
+              ? 'border-emerald bg-emerald text-white'
               : 'border-line bg-sunken text-transparent hover:border-emerald/60 hover:text-emerald/40',
             !canEdit && 'cursor-not-allowed opacity-60',
           )}
@@ -115,29 +116,38 @@ export function TaskRow({ task, compact = false }: { task: TaskItem; compact?: b
             {statusLabel}
           </StatusChip>
           {canEdit && (
-            <Menu
-              items={[
-                { label: 'Edit task', icon: 'pencil', onSelect: () => setEditing(true) },
-                {
-                  label: done ? 'Reopen' : 'Mark done',
-                  icon: done ? 'refresh' : 'check',
-                  onSelect: () => void toggleTask(task.id),
-                },
-                {
-                  label: 'Delete',
-                  icon: 'trash',
-                  danger: true,
-                  onSelect: () =>
-                    confirm.ask({
-                      title: `Delete ${task.code}?`,
-                      body: 'The task is removed permanently.',
-                      confirmLabel: 'Delete',
-                      danger: true,
-                      onConfirm: () => void deleteTask(task.id),
-                    }),
-                },
-              ]}
-            />
+            <div className="flex items-center gap-1">
+              <IconButton
+                icon="pencil"
+                label="Edit task"
+                size="sm"
+                className="opacity-70 transition-opacity hover:opacity-100"
+                onClick={() => setEditing(true)}
+              />
+              <Menu
+                items={[
+                  { label: 'Edit task', icon: 'pencil', onSelect: () => setEditing(true) },
+                  {
+                    label: done ? 'Reopen' : 'Mark done',
+                    icon: done ? 'refresh' : 'check',
+                    onSelect: () => void toggleTask(task.id),
+                  },
+                  {
+                    label: 'Delete',
+                    icon: 'trash',
+                    danger: true,
+                    onSelect: () =>
+                      confirm.ask({
+                        title: `Delete ${task.code}?`,
+                        body: 'The task is removed permanently.',
+                        confirmLabel: 'Delete',
+                        danger: true,
+                        onConfirm: () => void deleteTask(task.id),
+                      }),
+                  },
+                ]}
+              />
+            </div>
           )}
         </div>
       </li>
@@ -149,7 +159,8 @@ export function TaskRow({ task, compact = false }: { task: TaskItem; compact?: b
 }
 
 export function TaskSheet({ open, onClose, task }: { open: boolean; onClose: () => void; task: TaskItem }) {
-  const { data, canEdit, updateTask } = useStore()
+  const { data, canEdit, canManage, updateTask, deleteTask } = useStore()
+  const confirm = useConfirm()
   const [draft, setDraft] = useState<TaskItem>(task)
   const [saving, setSaving] = useState(false)
 
@@ -175,28 +186,49 @@ export function TaskSheet({ open, onClose, task }: { open: boolean; onClose: () 
   }
 
   return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      title={draft.title || 'Task'}
-      subtitle={draft.code}
-      footer={
-        canEdit ? (
-          <>
-            <Button variant="quiet" onClick={onClose}>
-              Cancel
+    <>
+      <Sheet
+        open={open}
+        onClose={onClose}
+        title={draft.title || 'Task'}
+        subtitle={draft.code}
+        footer={
+          canEdit ? (
+            <>
+              {canManage && (
+                <Button
+                  variant="danger"
+                  icon="trash"
+                  onClick={() =>
+                    confirm.ask({
+                      title: `Delete ${task.code}?`,
+                      body: 'The task is removed permanently. This cannot be undone.',
+                      confirmLabel: 'Delete',
+                      danger: true,
+                      onConfirm: () => {
+                        void deleteTask(task.id)
+                        onClose()
+                      },
+                    })
+                  }
+                >
+                  Delete
+                </Button>
+              )}
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button variant="primary" icon="check" loading={saving} onClick={() => void save()}>
+                Save
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" onClick={onClose}>
+              Close
             </Button>
-            <Button variant="primary" icon="check" loading={saving} onClick={() => void save()}>
-              Save
-            </Button>
-          </>
-        ) : (
-          <Button variant="quiet" onClick={onClose}>
-            Close
-          </Button>
-        )
-      }
-    >
+          )
+        }
+      >
       <fieldset disabled={!canEdit} className="space-y-3">
         <Field label="Task">
           <Input value={draft.title} onChange={(e) => set('title', e.target.value)} placeholder="What needs doing?" />
@@ -293,5 +325,7 @@ export function TaskSheet({ open, onClose, task }: { open: boolean; onClose: () 
         )}
       </fieldset>
     </Sheet>
+    {confirm.element}
+  </>
   )
 }

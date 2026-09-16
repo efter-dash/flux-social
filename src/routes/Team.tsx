@@ -18,6 +18,7 @@ import {
   CardHeader,
   EmptyState,
   Field,
+  IconButton,
   Input,
   OptionSelect,
   ProgressBar,
@@ -230,30 +231,39 @@ export function TeamPage() {
                   )}
                 </div>
                 {canManage && (
-                  <Menu
-                    items={[
-                      { label: 'Edit', icon: 'pencil', onSelect: () => setEditing(m) },
-                      {
-                        label: m.active ? 'Deactivate' : 'Reactivate',
-                        icon: m.active ? 'block' : 'refresh',
-                        onSelect: () => void updateMember(m.id, { active: !m.active }),
-                      },
-                      {
-                        label: 'Remove',
-                        icon: 'trash',
-                        danger: true,
-                        disabled: m.access === 'owner',
-                        onSelect: () =>
-                          confirm.ask({
-                            title: `Remove ${m.name}?`,
-                            body: 'If they have any content or tasks attached, they are deactivated instead so history stays intact.',
-                            confirmLabel: 'Remove',
-                            danger: true,
-                            onConfirm: () => void removeMember(m.id),
-                          }),
-                      },
-                    ]}
-                  />
+                  <div className="flex items-center gap-1">
+                    <IconButton
+                      icon="pencil"
+                      label="Edit member"
+                      size="sm"
+                      className="opacity-70 transition-opacity hover:opacity-100"
+                      onClick={() => setEditing(m)}
+                    />
+                    <Menu
+                      items={[
+                        { label: 'Edit', icon: 'pencil', onSelect: () => setEditing(m) },
+                        {
+                          label: m.active ? 'Deactivate' : 'Reactivate',
+                          icon: m.active ? 'block' : 'refresh',
+                          onSelect: () => void updateMember(m.id, { active: !m.active }),
+                        },
+                        {
+                          label: 'Remove',
+                          icon: 'trash',
+                          danger: true,
+                          disabled: m.access === 'owner',
+                          onSelect: () =>
+                            confirm.ask({
+                              title: `Remove ${m.name}?`,
+                              body: 'If they have any content or tasks attached, they are deactivated instead so history stays intact.',
+                              confirmLabel: 'Remove',
+                              danger: true,
+                              onConfirm: () => void removeMember(m.id),
+                            }),
+                        },
+                      ]}
+                    />
+                  </div>
                 )}
               </div>
             </li>
@@ -298,7 +308,8 @@ function MemberSheet({
   member: Member | null
   onSave: (patch: Partial<Member>) => Promise<void>
 }) {
-  const { data, canManage, me } = useStore()
+  const { data, canManage, me, removeMember } = useStore()
+  const confirm = useConfirm()
   const [draft, setDraft] = useState<Partial<Member>>(
     member ?? { name: '', email: '', role: '', access: 'member', active: true, responsibility: '', contact: '', notes: '' },
   )
@@ -321,34 +332,55 @@ function MemberSheet({
   }
 
   return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      title={member ? member.name : 'Add someone'}
-      subtitle={member ? `${member.role} · ${member.access}` : 'They can also join themselves with the workspace code'}
-      footer={
-        editable ? (
-          <>
-            <Button variant="quiet" onClick={onClose}>
-              Cancel
+    <>
+      <Sheet
+        open={open}
+        onClose={onClose}
+        title={member ? member.name : 'Add someone'}
+        subtitle={member ? `${member.role} · ${member.access}` : 'They can also join themselves with the workspace code'}
+        footer={
+          editable ? (
+            <>
+              {canManage && member && member.access !== 'owner' && (
+                <Button
+                  variant="danger"
+                  icon="trash"
+                  onClick={() =>
+                    confirm.ask({
+                      title: `Remove ${member.name}?`,
+                      body: 'If they have any content or tasks attached, they are deactivated instead so history stays intact.',
+                      confirmLabel: 'Remove',
+                      danger: true,
+                      onConfirm: () => {
+                        void removeMember(member.id)
+                        onClose()
+                      },
+                    })
+                  }
+                >
+                  Remove
+                </Button>
+              )}
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                icon="check"
+                loading={saving}
+                disabled={!draft.name?.trim()}
+                onClick={() => void save()}
+              >
+                {member ? 'Save' : 'Add to team'}
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" onClick={onClose}>
+              Close
             </Button>
-            <Button
-              variant="primary"
-              icon="check"
-              loading={saving}
-              disabled={!draft.name?.trim()}
-              onClick={() => void save()}
-            >
-              {member ? 'Save' : 'Add to team'}
-            </Button>
-          </>
-        ) : (
-          <Button variant="quiet" onClick={onClose}>
-            Close
-          </Button>
-        )
-      }
-    >
+          )
+        }
+      >
       <fieldset disabled={!editable} className="space-y-3">
         <Field label="Name">
           <Input value={draft.name ?? ''} onChange={(e) => set('name', e.target.value)} placeholder="Full name" />
@@ -413,5 +445,7 @@ function MemberSheet({
         )}
       </fieldset>
     </Sheet>
+    {confirm.element}
+  </>
   )
 }

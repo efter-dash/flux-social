@@ -104,7 +104,7 @@ export function ContentSheet({
       size="lg"
       footer={
         readOnly ? (
-          <Button variant="quiet" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Close
           </Button>
         ) : (
@@ -113,7 +113,6 @@ export function ContentSheet({
               <Button
                 variant="danger"
                 icon="trash"
-                className="mr-auto"
                 onClick={() => {
                   onDelete()
                   onClose()
@@ -122,7 +121,7 @@ export function ContentSheet({
                 Delete
               </Button>
             )}
-            <Button variant="quiet" onClick={onClose}>
+            <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
             <Button variant="primary" icon="check" loading={saving} onClick={() => void save()}>

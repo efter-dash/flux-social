@@ -26,6 +26,7 @@ import {
   cx,
 } from '@/components/ui/primitives'
 import { Icon } from '@/components/ui/Icon'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { useConfirm } from '@/components/ui/Overlay'
 import { useStore } from '@/state/store'
 import type { AccessLevel, PlatformDef, Stage, Taxonomies } from '@/lib/types'
@@ -100,7 +101,7 @@ function WorkspaceTab() {
       <Card>
         <CardHeader label="Identity" title="Workspace" />
         <div className="space-y-3 p-widget">
-          <Field label="Name">
+          <Field label="Workspace Name">
             <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!canManage} />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -186,6 +187,21 @@ function WorkspaceTab() {
           </p>
         </div>
       </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader label="Appearance" title="Theme mode" />
+        <div className="space-y-3 p-widget">
+          <div className="flex flex-col gap-3 rounded-md border border-line/50 bg-sunken/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <span className="block text-body-sm text-ink font-medium">Interface theme</span>
+              <span className="block text-body-xs text-ink-faint">
+                Switch between Obsidian dark theme and clean high-contrast light theme.
+              </span>
+            </div>
+            <ThemeToggle variant="segmented" />
+          </div>
+        </div>
+      </Card>
     </div>
   )
 }
@@ -235,7 +251,7 @@ function PipelineTab() {
           action={
             canManage && dirty ? (
               <div className="flex gap-2">
-                <Button size="sm" variant="quiet" onClick={() => setLocal(workspace.stages)}>
+                <Button size="sm" variant="ghost" onClick={() => setLocal(workspace.stages)}>
                   Reset
                 </Button>
                 <Button size="sm" variant="primary" icon="check" loading={saving} onClick={() => void save()}>
@@ -686,7 +702,7 @@ function AccessTab() {
                 {copied ? 'Copied' : 'Copy'}
               </Button>
               {canManage && (
-                <Button size="sm" variant="quiet" icon="refresh" onClick={() => void regenerateJoinCode()}>
+                <Button size="sm" variant="ghost" icon="refresh" onClick={() => void regenerateJoinCode()}>
                   New
                 </Button>
               )}

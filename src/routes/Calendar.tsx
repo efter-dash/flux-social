@@ -274,7 +274,7 @@ export function CalendarPage() {
                   {item.contentType || '—'}
                 </StatusChip>
                 {canEdit && (
-                  <Button size="sm" variant="quiet" icon="calendar" onClick={() => setEditing(item)}>
+                  <Button size="sm" variant="ghost" icon="calendar" onClick={() => setEditing(item)}>
                     Schedule
                   </Button>
                 )}

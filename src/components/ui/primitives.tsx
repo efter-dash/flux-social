@@ -80,18 +80,21 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
-  // The inset white top edge is what stops a flat blue rectangle looking cheap.
+  // Balanced borders on every variant prevent layout shifts and misaligned heights when buttons sit together.
   primary:
-    'bg-accent text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.28)] hover:bg-accent/90 active:bg-accent/80',
-  ghost: 'border border-line/70 bg-transparent text-ink hover:border-line hover:bg-raised/60',
-  quiet: 'bg-transparent text-ink-dim hover:bg-raised/60 hover:text-ink',
-  danger: 'bg-danger/15 text-danger hover:bg-danger/25',
+    'border border-accent/90 bg-accent text-white shadow-sm shadow-[inset_0_1px_0_rgb(255_255_255/0.25)] hover:bg-accent/90 hover:border-accent active:bg-accent/95',
+  ghost:
+    'border border-line/75 bg-sunken/40 text-ink hover:border-line hover:bg-raised/70 active:bg-raised/90 shadow-xs',
+  quiet:
+    'border border-transparent bg-transparent text-ink-dim hover:border-line/50 hover:bg-raised/60 hover:text-ink active:bg-raised/80',
+  danger:
+    'border border-danger/35 bg-danger/10 text-danger hover:border-danger/60 hover:bg-danger/20 active:bg-danger/25',
 }
 
 const BUTTON_SIZE = {
-  sm: 'h-8 gap-1.5 px-2.5 text-body-xs',
-  md: 'h-10 gap-2 px-3.5 text-body-sm',
-  lg: 'h-11 gap-2 px-4 text-body-md',
+  sm: 'h-8 gap-2 px-3 text-body-xs',
+  md: 'h-9.5 gap-2 px-4 text-body-sm',
+  lg: 'h-11 gap-2.5 px-5 text-body-md',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -103,7 +106,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       disabled={disabled || loading}
       className={cx(
-        'inline-flex select-none items-center justify-center rounded font-medium transition-all duration-150',
+        'inline-flex select-none items-center justify-center rounded-lg font-medium transition-all duration-150',
         'disabled:cursor-not-allowed disabled:opacity-45',
         BUTTON_VARIANT[variant],
         BUTTON_SIZE[size],
@@ -127,15 +130,23 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean
 }
 
-export function IconButton({ icon, label, size = 'md', tone = 'default', active, className, ...rest }: IconButtonProps) {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  { icon, label, size = 'md', tone = 'default', active, className, ...rest },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       aria-label={label}
       title={label}
       className={cx(
-        'inline-flex shrink-0 items-center justify-center rounded transition-colors duration-150',
-        size === 'sm' ? 'h-8 w-8' : 'h-10 w-10',
-        active ? 'bg-accent/15 text-primary' : tone === 'danger' ? 'text-ink-faint hover:bg-danger/15 hover:text-danger' : 'text-ink-dim hover:bg-raised/70 hover:text-ink',
+        'inline-flex shrink-0 items-center justify-center rounded-lg border transition-all duration-150',
+        size === 'sm' ? 'h-8 w-8' : 'h-9.5 w-9.5',
+        active
+          ? 'border-accent/50 bg-accent/15 text-primary shadow-xs'
+          : tone === 'danger'
+            ? 'border-transparent text-ink-faint hover:border-danger/35 hover:bg-danger/15 hover:text-danger'
+            : 'border-transparent text-ink-dim hover:border-line/60 hover:bg-raised/70 hover:text-ink',
         className,
       )}
       {...rest}
@@ -143,7 +154,7 @@ export function IconButton({ icon, label, size = 'md', tone = 'default', active,
       <Icon name={icon} size={size === 'sm' ? 16 : 19} />
     </button>
   )
-}
+})
 
 export function Spinner({ size = 16 }: { size?: number }) {
   return (
@@ -209,10 +220,11 @@ export function Chip({
     <Tag
       onClick={onClick}
       className={cx(
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-body-xs transition-colors',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-body-xs font-medium transition-all duration-150',
         active
-          ? 'border-accent/60 bg-accent/15 text-primary'
-          : 'border-line/60 bg-sunken/60 text-ink-dim hover:border-line',
+          ? 'border-accent/70 bg-accent/15 font-semibold text-primary shadow-xs'
+          : 'border-line/60 bg-sunken/50 text-ink-dim hover:border-line hover:bg-raised/60 hover:text-ink',
+        onClick && 'cursor-pointer active:scale-[0.98]',
         className,
       )}
     >
@@ -292,8 +304,8 @@ export function CardHeader({
   return (
     <div className={cx('flex items-start justify-between gap-3 px-widget pt-widget', className)}>
       <div className="min-w-0">
-        {label && <div className="label-caps">{label}</div>}
-        {title && <div className="mt-1 text-headline-sm text-ink">{title}</div>}
+        {label && <div className="label-caps font-bold text-ink-dim">{label}</div>}
+        {title && <div className="mt-1 text-headline-sm font-bold text-ink">{title}</div>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>
@@ -315,7 +327,7 @@ export function SectionTitle({
         <h1 className="text-headline-md text-ink sm:text-headline-lg">{title}</h1>
         {blurb && <p className="mt-1 max-w-2xl text-body-sm text-ink-dim">{blurb}</p>}
       </div>
-      {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+      {action && <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">{action}</div>}
     </div>
   )
 }
@@ -454,7 +466,7 @@ export function ProgressRing({
 export function Label({ children, hint }: { children: ReactNode; hint?: string }) {
   return (
     <span className="mb-1.5 flex items-baseline justify-between gap-2">
-      <span className="label-caps">{children}</span>
+      <span className="label-caps font-bold text-ink">{children}</span>
       {hint && <span className="text-label-micro text-ink-faint">{hint}</span>}
     </span>
   )
@@ -571,14 +583,14 @@ export function Toggle({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cx(
-        'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 disabled:opacity-45',
-        checked ? 'bg-accent' : 'bg-overlay',
+        'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-line/60 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-45',
+        checked ? 'border-accent bg-accent' : 'bg-sunken dark:bg-raised',
       )}
     >
       <span
         className={cx(
-          'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ease-swift',
-          checked ? 'translate-x-[22px]' : 'translate-x-0.5',
+          'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-swift',
+          checked ? 'translate-x-[20px]' : 'translate-x-[2px]',
         )}
       />
     </button>
@@ -610,7 +622,7 @@ export function Tabs<T extends string>({
   className?: string
 }) {
   return (
-    <div className={cx('no-scrollbar -mx-1 flex gap-1 overflow-x-auto px-1', className)} role="tablist">
+    <div className={cx('no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1', className)} role="tablist">
       {tabs.map((t) => {
         const active = t.id === value
         return (
@@ -620,10 +632,10 @@ export function Tabs<T extends string>({
             aria-selected={active}
             onClick={() => onChange(t.id)}
             className={cx(
-              'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 font-mono text-label-caps uppercase transition-colors duration-150',
+              'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 font-mono text-label-caps uppercase transition-all duration-150',
               active
-                ? 'border-accent/60 bg-accent/15 text-primary'
-                : 'border-transparent text-ink-faint hover:bg-raised/50 hover:text-ink-dim',
+                ? 'border-accent/70 bg-accent/15 font-bold text-primary shadow-xs'
+                : 'border-line/60 bg-sunken/40 text-ink-dim hover:border-line hover:bg-raised/60 hover:text-ink',
             )}
           >
             {t.label}
@@ -646,7 +658,7 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div className="inline-flex rounded border border-line/60 bg-sunken p-0.5">
+    <div className="inline-flex items-center gap-1 rounded-lg border border-line/70 bg-sunken/60 p-1">
       {options.map((o) => {
         const active = o.id === value
         return (
@@ -654,8 +666,10 @@ export function Segmented<T extends string>({
             key={o.id}
             onClick={() => onChange(o.id)}
             className={cx(
-              'inline-flex items-center gap-1.5 rounded-[0.35rem] px-2.5 py-1 text-body-xs font-medium transition-colors duration-150',
-              active ? 'bg-raised text-ink shadow-sm' : 'text-ink-faint hover:text-ink-dim',
+              'inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-body-xs font-medium transition-all duration-150',
+              active
+                ? 'border-line/60 bg-panel text-ink shadow-xs'
+                : 'border-transparent text-ink-faint hover:text-ink hover:bg-raised/50',
             )}
           >
             {o.icon && <Icon name={o.icon} size={14} />}

@@ -162,14 +162,14 @@ export function PipelinePage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[52rem] text-left">
                 <thead className="bg-sunken/60">
-                  <tr className="label-caps">
-                    <th className="px-3 py-2.5 font-medium">Item</th>
-                    <th className="px-3 py-2.5 font-medium">Stage</th>
-                    <th className="px-3 py-2.5 font-medium">Waiting on</th>
-                    <th className="px-3 py-2.5 font-medium">Idle</th>
-                    <th className="px-3 py-2.5 font-medium">Blocker</th>
-                    <th className="px-3 py-2.5 font-medium">Next action</th>
-                    <th className="px-3 py-2.5 font-medium">Publish</th>
+                  <tr className="label-caps font-bold text-ink">
+                    <th className="px-3 py-2.5 font-bold text-ink">Item</th>
+                    <th className="px-3 py-2.5 font-bold text-ink">Stage</th>
+                    <th className="px-3 py-2.5 font-bold text-ink">Waiting on</th>
+                    <th className="px-3 py-2.5 font-bold text-ink">Idle</th>
+                    <th className="px-3 py-2.5 font-bold text-ink">Blocker</th>
+                    <th className="px-3 py-2.5 font-bold text-ink">Next action</th>
+                    <th className="px-3 py-2.5 font-bold text-ink">Publish</th>
                   </tr>
                 </thead>
                 <tbody className="divide-hair">
@@ -248,7 +248,7 @@ export function PipelinePage() {
                       boxShadow: `0 0 6px rgb(var(--${TONE_VAR[col.tone]}))`,
                     }}
                   />
-                  <span className="truncate font-mono text-label-caps uppercase text-ink-dim">{col.label}</span>
+                  <span className="truncate font-mono text-label-caps font-bold uppercase tracking-wide text-ink">{col.label}</span>
                 </span>
                 <span className="numeral shrink-0 rounded-full bg-sunken px-2 py-0.5 font-mono text-label-micro text-ink-faint">
                   {col.items.length}

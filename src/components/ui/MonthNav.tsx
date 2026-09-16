@@ -19,14 +19,14 @@ export function MonthNav({
 }) {
   const isCurrent = month === currentMonthKey()
   return (
-    <div className={cx('inline-flex items-center gap-1 rounded border border-line/60 bg-sunken/70 p-0.5', className)}>
+    <div className={cx('inline-flex items-center gap-1 rounded-lg border border-line/70 bg-sunken/60 p-1', className)}>
       <IconButton icon="chevron-left" label="Previous month" size="sm" onClick={() => onChange(addMonths(month, -1))} />
       <button
         onClick={() => onChange(currentMonthKey())}
         title={isCurrent ? 'Current month' : 'Jump to current month'}
         className={cx(
-          'min-w-[8.5rem] px-2 text-center text-body-sm font-medium transition-colors',
-          isCurrent ? 'text-ink' : 'text-ink-dim hover:text-ink',
+          'min-w-[8.5rem] rounded-md border border-transparent px-2.5 py-1 text-center text-body-sm font-medium transition-all',
+          isCurrent ? 'font-semibold text-ink' : 'text-ink-dim hover:border-line/40 hover:bg-raised/50 hover:text-ink',
         )}
       >
         {compact ? fmtMonth(month).replace(/ \d{4}$/, '') : fmtMonth(month)}

@@ -83,7 +83,7 @@ export function MetricsSheet({
       size="lg"
       footer={
         <>
-          <Button variant="quiet" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button variant="primary" icon="check" loading={saving} onClick={() => void save()}>

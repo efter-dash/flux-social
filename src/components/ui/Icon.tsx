@@ -32,6 +32,7 @@ export type IconName =
   | 'alert'
   | 'more'
   | 'sparkle'
+  | 'flux-logo'
   | 'trend-up'
   | 'trend-down'
   | 'bulb'
@@ -64,6 +65,8 @@ export type IconName =
   | 'download'
   | 'menu'
   | 'dot'
+  | 'sun'
+  | 'moon'
 
 interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   name: IconName
@@ -207,10 +210,16 @@ const PATHS: Record<IconName, (filled: boolean) => JSX.Element> = {
     </>
   ),
   sparkle: (fl) => (
-    <>
-      <path d="M12 3.5l1.8 4.7 4.7 1.8-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.8L12 3.5z" fill={f(fl)} />
-      <path d="M18.5 16.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z" fill={f(fl)} />
-    </>
+    <path
+      d="M12 0.24 C12.05 8.16, 13.92 9.84, 16.8 7.2 C14.16 10.08, 15.84 11.95, 23.76 12 C15.84 12.05, 14.16 13.92, 16.8 16.8 C13.92 14.16, 12.05 15.84, 12 23.76 C11.95 15.84, 10.08 14.16, 7.2 16.8 C9.84 13.92, 8.16 12.05, 0.24 12 C8.16 11.95, 9.84 10.08, 7.2 7.2 C10.08 9.84, 11.95 8.16, 12 0.24 Z"
+      fill={f(fl)}
+    />
+  ),
+  'flux-logo': (fl) => (
+    <path
+      d="M12 0.24 C12.05 8.16, 13.92 9.84, 16.8 7.2 C14.16 10.08, 15.84 11.95, 23.76 12 C15.84 12.05, 14.16 13.92, 16.8 16.8 C13.92 14.16, 12.05 15.84, 12 23.76 C11.95 15.84, 10.08 14.16, 7.2 16.8 C9.84 13.92, 8.16 12.05, 0.24 12 C8.16 11.95, 9.84 10.08, 7.2 7.2 C10.08 9.84, 11.95 8.16, 12 0.24 Z"
+      fill={f(fl)}
+    />
   ),
   'trend-up': () => (
     <>
@@ -375,4 +384,16 @@ const PATHS: Record<IconName, (filled: boolean) => JSX.Element> = {
   ),
   menu: () => <path d="M4 7h16M4 12h16M4 17h16" />,
   dot: () => <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />,
+  sun: (fl) => (
+    <>
+      <circle cx="12" cy="12" r="4" fill={f(fl)} />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </>
+  ),
+  moon: (fl) => (
+    <path
+      d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"
+      fill={f(fl)}
+    />
+  ),
 }

@@ -113,7 +113,7 @@ export function TasksPage() {
       {/* -------- Scope + progress -------- */}
       <Card>
         <div className="flex flex-wrap items-center gap-3 p-widget">
-          <div className="inline-flex rounded border border-line/60 bg-sunken p-0.5">
+          <div className="inline-flex items-center gap-1 rounded-lg border border-line/70 bg-sunken/60 p-1">
             {([
               { id: 'mine', label: me ? 'My tasks' : 'Mine' },
               { id: 'team', label: 'Whole team' },
@@ -122,8 +122,10 @@ export function TasksPage() {
                 key={s.id}
                 onClick={() => setScope(s.id)}
                 className={cx(
-                  'rounded-[0.35rem] px-3 py-1.5 text-body-xs font-medium transition-colors',
-                  scope === s.id ? 'bg-raised text-ink' : 'text-ink-faint hover:text-ink-dim',
+                  'rounded-md border px-3 py-1 text-body-xs font-medium transition-all duration-150',
+                  scope === s.id
+                    ? 'border-line/60 bg-panel text-ink shadow-xs'
+                    : 'border-transparent text-ink-faint hover:text-ink hover:bg-raised/50',
                 )}
               >
                 {s.label}
@@ -222,7 +224,7 @@ export function TasksPage() {
           }
         />
       ) : (
-        <Card className="overflow-hidden">
+        <Card>
           <CardHeader
             label={scope === 'mine' ? 'Your tasks' : 'Team tasks'}
             title={`${list.length} task${list.length === 1 ? '' : 's'}`}

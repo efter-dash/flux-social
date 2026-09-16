@@ -12,6 +12,7 @@ import {
   Button,
   Card,
   EmptyState,
+  IconButton,
   PlatformChip,
   PriorityFlag,
   SectionTitle,
@@ -20,7 +21,7 @@ import {
 } from '@/components/ui/primitives'
 import { Icon } from '@/components/ui/Icon'
 import { MonthNav } from '@/components/ui/MonthNav'
-import { useConfirm } from '@/components/ui/Overlay'
+import { Menu, useConfirm } from '@/components/ui/Overlay'
 import { ContentCard, ContentStatus, DeadlineChip, StageTrack } from '@/components/content/pieces'
 import { ContentSheet } from '@/components/content/ContentSheet'
 import { ContentFilterBar, applyContentFilters, useContentFilters } from '@/components/content/Filters'
@@ -169,21 +170,22 @@ export function ContentPlanPage() {
           ))}
         </ul>
       ) : (
-        <Card className="overflow-hidden">
+        <Card>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[68rem] text-left">
               <thead className="bg-sunken/60">
-                <tr className="label-caps">
+                <tr className="label-caps font-bold text-ink">
                   <SortHeader label="Code" k="code" sort={sort} asc={asc} onSort={toggleSort} className="w-24" />
                   <SortHeader label="Title" k="title" sort={sort} asc={asc} onSort={toggleSort} />
-                  <th className="px-3 py-2.5 font-medium">Type</th>
-                  <th className="px-3 py-2.5 font-medium">Platform</th>
-                  <th className="px-3 py-2.5 font-medium">Owner</th>
+                  <th className="px-3 py-2.5 font-bold text-ink">Type</th>
+                  <th className="px-3 py-2.5 font-bold text-ink">Platform</th>
+                  <th className="px-3 py-2.5 font-bold text-ink">Owner</th>
                   <SortHeader label="Pipeline" k="status" sort={sort} asc={asc} onSort={toggleSort} className="w-40" />
-                  <th className="px-3 py-2.5 font-medium">Next</th>
+                  <th className="px-3 py-2.5 font-bold text-ink">Next</th>
                   <SortHeader label="Publish" k="date" sort={sort} asc={asc} onSort={toggleSort} className="w-40" />
                   <SortHeader label="Priority" k="priority" sort={sort} asc={asc} onSort={toggleSort} />
-                  <th className="px-3 py-2.5 font-medium">Status</th>
+                  <th className="px-3 py-2.5 font-bold text-ink">Status</th>
+                  <th className="px-3 py-2.5 text-right font-bold text-ink">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-hair">
@@ -248,6 +250,54 @@ export function ContentPlanPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <ContentStatus item={item} stages={workspace.stages} />
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {canEdit && (
+                            <IconButton
+                              icon="pencil"
+                              label="Edit item"
+                              size="sm"
+                              className="opacity-70 transition-opacity hover:opacity-100"
+                              onClick={() => setEditing(item)}
+                            />
+                          )}
+                          <Menu
+                            items={[
+                              ...(canEdit
+                                ? [
+                                    {
+                                      label: 'Edit details',
+                                      icon: 'pencil' as const,
+                                      onSelect: () => setEditing(item),
+                                    },
+                                  ]
+                                : []),
+                              {
+                                label: 'View page',
+                                icon: 'external' as const,
+                                onSelect: () => navigate(`/content/${item.id}`),
+                              },
+                              ...(canManage
+                                ? [
+                                    {
+                                      label: 'Delete',
+                                      icon: 'trash' as const,
+                                      danger: true,
+                                      onSelect: () =>
+                                        confirm.ask({
+                                          title: `Delete ${item.code}?`,
+                                          body: 'The item is removed permanently. This cannot be undone.',
+                                          confirmLabel: 'Delete',
+                                          danger: true,
+                                          onConfirm: () => void deleteContent(item.id),
+                                        }),
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                          />
+                        </div>
                       </td>
                     </tr>
                   )
@@ -319,7 +369,7 @@ function SortHeader({
 }) {
   const active = sort === k
   return (
-    <th className={cx('px-3 py-2.5 font-medium', className)}>
+    <th className={cx('px-3 py-2.5 font-bold text-ink', className)}>
       <button
         onClick={() => onSort(k)}
         className={cx('inline-flex items-center gap-1 transition-colors', active ? 'text-ink' : 'hover:text-ink-dim')}

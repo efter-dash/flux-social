@@ -1,0 +1,6 @@
+{
+  "name": "FLUX",
+  "description": "FLUX — content production command centre for social media teams.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

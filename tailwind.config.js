@@ -7,6 +7,7 @@ const c = (v) => `rgb(var(${v}) / <alpha-value>)`
 
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -39,9 +40,10 @@ export default {
         danger: c('--danger'),
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-        display: ['"Hanken Grotesk"', 'Inter', 'ui-sans-serif', 'sans-serif'],
+        sans: ['"Instrument Sans"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        display: ['"Instrument Sans"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'monospace'],
+        serif: ['"Instrument Sans"', 'Georgia', 'serif'],
       },
       fontSize: {
         // name: [size, { lineHeight, letterSpacing, fontWeight }]
@@ -79,8 +81,8 @@ export default {
       },
       boxShadow: {
         // Ambient occlusion, never a hard drop shadow.
-        ambient: '0 24px 40px -10px rgb(0 0 0 / 0.45)',
-        float: '0 32px 64px -16px rgb(0 0 0 / 0.55)',
+        ambient: 'var(--shadow-ambient, 0 24px 40px -10px rgb(0 0 0 / 0.45))',
+        float: 'var(--shadow-float, 0 32px 64px -16px rgb(0 0 0 / 0.55))',
         'glow-primary': '0 0 0 4px rgb(var(--accent) / 0.18)',
       },
       backdropBlur: { panel: '12px', modal: '16px' },

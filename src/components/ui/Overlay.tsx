@@ -95,7 +95,7 @@ export function Sheet({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">{children}</div>
 
         {footer && (
-          <div className="safe-bottom flex items-center justify-end gap-2 border-t border-white/10 bg-panel/60 px-5 py-3">
+          <div className="safe-bottom flex flex-wrap items-center justify-end gap-3 border-t border-line/60 bg-panel/75 px-6 py-4">
             {footer}
           </div>
         )}
@@ -134,7 +134,7 @@ export function ConfirmDialog({
       size="sm"
       footer={
         <>
-          <Button variant="quiet" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button
@@ -204,63 +204,168 @@ export function Menu({
   label = 'More actions',
   icon = 'more',
   align = 'right',
+  size = 'sm',
 }: {
   items: MenuItem[]
   label?: string
   icon?: IconName
   align?: 'left' | 'right'
+  size?: 'sm' | 'md'
 }) {
   const [open, setOpen] = useState(false)
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [coords, setCoords] = useState<{
+    top?: number
+    bottom?: number
+    left?: number
+    right?: number
+    openUpwards?: boolean
+  }>({})
+
+  const updatePosition = useCallback(() => {
+    const btn = buttonRef.current
+    if (!btn) return
+    const rect = btn.getBoundingClientRect()
+
+    // Height estimate: ~38px per item + 16px container padding & borders
+    const estimatedHeight = Math.max(80, items.length * 38 + 16)
+    const estimatedWidth = 192 // min-w-[12rem]
+
+    // Check vertical space
+    const spaceBelow = window.innerHeight - rect.bottom - 8
+    const spaceAbove = rect.top - 8
+    const openUpwards = spaceBelow < estimatedHeight && spaceAbove > spaceBelow
+
+    const next: {
+      top?: number
+      bottom?: number
+      left?: number
+      right?: number
+      openUpwards?: boolean
+    } = { openUpwards }
+
+    if (openUpwards) {
+      next.bottom = Math.max(8, window.innerHeight - rect.top + 4)
+    } else {
+      next.top = Math.max(8, rect.bottom + 4)
+    }
+
+    // Horizontal placement with viewport boundaries
+    if (align === 'right') {
+      const rightFromViewport = window.innerWidth - rect.right
+      if (window.innerWidth - rightFromViewport < estimatedWidth + 8) {
+        next.left = 8
+      } else {
+        next.right = Math.max(8, rightFromViewport)
+      }
+    } else {
+      const leftVal = rect.left
+      if (leftVal + estimatedWidth > window.innerWidth - 8) {
+        next.right = 8
+      } else {
+        next.left = Math.max(8, leftVal)
+      }
+    }
+
+    setCoords(next)
+  }, [align, items.length])
+
+  useLayoutEffect(() => {
+    if (!open) return
+    updatePosition()
+  }, [open, updatePosition])
 
   useEffect(() => {
     if (!open) return
+
     const onDown = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (menuRef.current?.contains(target) || buttonRef.current?.contains(target)) {
+        return
+      }
+      setOpen(false)
     }
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
+
+    const onReposition = () => {
+      updatePosition()
+    }
+
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
+    window.addEventListener('resize', onReposition)
+    window.addEventListener('scroll', onReposition, true)
+
     return () => {
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', onReposition)
+      window.removeEventListener('scroll', onReposition, true)
     }
-  }, [open])
+  }, [open, updatePosition])
 
   return (
-    <div ref={wrapRef} className="relative">
-      <IconButton icon={icon} label={label} size="sm" onClick={() => setOpen((o) => !o)} active={open} />
-      {open && (
-        <div
-          role="menu"
-          className={cx(
-            'absolute z-40 mt-1 min-w-[11rem] animate-scale-in overflow-hidden rounded-md border border-white/10 bg-overlay/95 p-1 shadow-float backdrop-blur-[16px]',
-            align === 'right' ? 'right-0' : 'left-0',
-          )}
-        >
-          {items.map((item) => (
-            <button
-              key={item.label}
-              role="menuitem"
-              disabled={item.disabled}
-              onClick={() => {
-                setOpen(false)
-                item.onSelect()
-              }}
-              className={cx(
-                'flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left text-body-sm transition-colors disabled:opacity-40',
-                item.danger ? 'text-danger hover:bg-danger/15' : 'text-ink-dim hover:bg-raised hover:text-ink',
-              )}
-            >
-              {item.icon && <Icon name={item.icon} size={16} />}
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <>
+      <IconButton
+        ref={buttonRef}
+        icon={icon}
+        label={label}
+        size={size}
+        onClick={() => setOpen((o) => !o)}
+        active={open}
+      />
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{
+              position: 'fixed',
+              top: coords.top !== undefined ? `${coords.top}px` : undefined,
+              bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
+              left: coords.left !== undefined ? `${coords.left}px` : undefined,
+              right: coords.right !== undefined ? `${coords.right}px` : undefined,
+              zIndex: 9999,
+            }}
+            className={cx(
+              'min-w-[12rem] animate-scale-in overflow-hidden rounded-md border border-line/80 bg-panel/98 p-1 shadow-float backdrop-blur-[16px]',
+              coords.openUpwards ? 'origin-bottom-right' : 'origin-top-right',
+            )}
+          >
+            {items.map((item) => (
+              <button
+                key={item.label}
+                role="menuitem"
+                disabled={item.disabled}
+                onClick={() => {
+                  setOpen(false)
+                  item.onSelect()
+                }}
+                className={cx(
+                  'flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left text-body-sm font-medium transition-colors disabled:opacity-40',
+                  item.danger
+                    ? 'text-danger hover:bg-danger/15'
+                    : 'text-ink hover:bg-raised hover:text-ink',
+                )}
+              >
+                {item.icon && (
+                  <Icon
+                    name={item.icon}
+                    size={16}
+                    className={cx('shrink-0', item.danger ? 'text-danger' : 'text-ink-dim')}
+                  />
+                )}
+                <span className="truncate">{item.label}</span>
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
   )
 }
 

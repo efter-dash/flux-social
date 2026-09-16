@@ -176,7 +176,7 @@ export function PublishingPage() {
                       <Button size="sm" variant="primary" icon="send" onClick={() => void markPublished(item.id)}>
                         Mark published
                       </Button>
-                      <Button size="sm" variant="quiet" icon="calendar" onClick={() => setMetricsFor(item)}>
+                      <Button size="sm" variant="ghost" icon="calendar" onClick={() => setMetricsFor(item)}>
                         With details
                       </Button>
                     </div>
@@ -292,7 +292,7 @@ export function PublishingPage() {
                         </td>
                         {canEdit && (
                           <td className="px-3 py-2.5">
-                            <Button size="sm" variant="quiet" icon="pencil" onClick={() => setMetricsFor(item)}>
+                            <Button size="sm" variant="ghost" icon="pencil" onClick={() => setMetricsFor(item)}>
                               {hasMetrics(item.performance) ? 'Edit' : 'Add'}
                             </Button>
                           </td>

@@ -16,6 +16,7 @@ import {
   Chip,
   EmptyState,
   Field,
+  IconButton,
   Input,
   OptionSelect,
   PlatformChip,
@@ -161,9 +162,17 @@ export function IdeasPage() {
                       <span className="font-mono text-label-micro text-ink-faint">{idea.code}</span>
                     </span>
                     {canEdit && (
-                      <Menu
-                        items={[
-                          { label: 'Edit', icon: 'pencil', onSelect: () => setEditing(idea) },
+                      <div className="flex items-center gap-1">
+                        <IconButton
+                          icon="pencil"
+                          label="Edit idea"
+                          size="sm"
+                          className="opacity-70 transition-opacity hover:opacity-100"
+                          onClick={() => setEditing(idea)}
+                        />
+                        <Menu
+                          items={[
+                            { label: 'Edit', icon: 'pencil', onSelect: () => setEditing(idea) },
                           {
                             label: 'Promote into the plan',
                             icon: 'arrow-right',
@@ -197,7 +206,8 @@ export function IdeasPage() {
                           },
                         ]}
                       />
-                    )}
+                    </div>
+                  )}
                   </div>
 
                   <button onClick={() => setEditing(idea)} className="mt-2 text-left">
@@ -259,8 +269,9 @@ export function IdeasPage() {
 }
 
 function IdeaSheet({ open, onClose, idea }: { open: boolean; onClose: () => void; idea: Idea }) {
-  const { data, canEdit, updateIdea, promoteIdea } = useStore()
+  const { data, canEdit, canManage, updateIdea, deleteIdea, promoteIdea } = useStore()
   const navigate = useNavigate()
+  const confirm = useConfirm()
   const [draft, setDraft] = useState<Idea>(idea)
   const [saving, setSaving] = useState(false)
 
@@ -281,43 +292,63 @@ function IdeaSheet({ open, onClose, idea }: { open: boolean; onClose: () => void
   }
 
   return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      title={draft.topic || 'New idea'}
-      subtitle={draft.code}
-      footer={
-        canEdit ? (
-          <>
-            {draft.status !== 'converted' && (
-              <Button
-                variant="ghost"
-                icon="arrow-right"
-                className="mr-auto"
-                onClick={async () => {
-                  await updateIdea(idea.id, draft)
-                  const item = await promoteIdea(idea.id)
-                  onClose()
-                  if (item) navigate(`/content/${item.id}`)
-                }}
-              >
-                Promote into the plan
+    <>
+      <Sheet
+        open={open}
+        onClose={onClose}
+        title={draft.topic || 'New idea'}
+        subtitle={draft.code}
+        footer={
+          canEdit ? (
+            <>
+              {canManage && (
+                <Button
+                  variant="danger"
+                  icon="trash"
+                  onClick={() =>
+                    confirm.ask({
+                      title: `Delete ${idea.code}?`,
+                      body: 'The idea is removed permanently. This cannot be undone.',
+                      confirmLabel: 'Delete',
+                      danger: true,
+                      onConfirm: () => {
+                        void deleteIdea(idea.id)
+                        onClose()
+                      },
+                    })
+                  }
+                >
+                  Delete
+                </Button>
+              )}
+              {draft.status !== 'converted' && (
+                <Button
+                  variant="ghost"
+                  icon="arrow-right"
+                  onClick={async () => {
+                    await updateIdea(idea.id, draft)
+                    const item = await promoteIdea(idea.id)
+                    onClose()
+                    if (item) navigate(`/content/${item.id}`)
+                  }}
+                >
+                  Promote into plan
+                </Button>
+              )}
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
               </Button>
-            )}
-            <Button variant="quiet" onClick={onClose}>
-              Cancel
+              <Button variant="primary" icon="check" loading={saving} onClick={() => void save()}>
+                Save
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" onClick={onClose}>
+              Close
             </Button>
-            <Button variant="primary" icon="check" loading={saving} onClick={() => void save()}>
-              Save
-            </Button>
-          </>
-        ) : (
-          <Button variant="quiet" onClick={onClose}>
-            Close
-          </Button>
-        )
-      }
-    >
+          )
+        }
+      >
       <fieldset disabled={!canEdit} className="space-y-3">
         <Field label="Idea">
           <Input value={draft.topic} onChange={(e) => set('topic', e.target.value)} placeholder="One-line summary" />
@@ -381,5 +412,7 @@ function IdeaSheet({ open, onClose, idea }: { open: boolean; onClose: () => void
         )}
       </fieldset>
     </Sheet>
+    {confirm.element}
+  </>
   )
 }
