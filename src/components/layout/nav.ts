@@ -22,6 +22,7 @@ export const NAV: NavItem[] = [
   { to: '/library', label: 'Library', icon: 'library', group: 'insight' },
   { to: '/team', label: 'Team', icon: 'users', group: 'insight' },
   { to: '/review', label: 'Weekly review', icon: 'notes', group: 'insight' },
+  { to: '/reports', label: 'AI Reports (Ollama)', icon: 'sparkle', short: 'Reports', group: 'insight' },
   { to: '/settings', label: 'Settings', icon: 'sliders', group: 'admin' },
 ]
 

@@ -9,7 +9,8 @@
  * that explained how to add a person or a month by hand.
  */
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Button,
   Card,
@@ -28,13 +29,22 @@ import {
 import { Icon } from '@/components/ui/Icon'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { useConfirm } from '@/components/ui/Overlay'
+import { PWAInstallButton } from '@/components/ui/PWAInstallButton'
+import { usePWAInstall } from '@/lib/usePWAInstall'
+import {
+  DEFAULT_OLLAMA_ENDPOINT,
+  OllamaModelInfo,
+  loadOllamaConfig,
+  saveOllamaConfig,
+  testOllamaConnection,
+} from '@/lib/ollama'
 import { useStore } from '@/state/store'
 import type { AccessLevel, PlatformDef, Stage, Taxonomies } from '@/lib/types'
 import { uid } from '@/lib/factories'
 import { PIPELINE_TEMPLATES } from '@/lib/templates'
 import { APP_NAME } from '@/brand'
 
-type Tab = 'workspace' | 'pipeline' | 'lists' | 'access' | 'data'
+type Tab = 'workspace' | 'pipeline' | 'lists' | 'access' | 'data' | 'desktop'
 
 export function SettingsPage() {
   const { data, canManage, access } = useStore()
@@ -67,6 +77,7 @@ export function SettingsPage() {
           { id: 'lists', label: 'Dropdowns' },
           { id: 'access', label: 'Access' },
           { id: 'data', label: 'Data' },
+          { id: 'desktop', label: 'Desktop & Ollama' },
         ]}
         value={tab}
         onChange={setTab}
@@ -77,6 +88,7 @@ export function SettingsPage() {
       {tab === 'lists' && <ListsTab />}
       {tab === 'access' && <AccessTab />}
       {tab === 'data' && <DataTab />}
+      {tab === 'desktop' && <DesktopTab />}
     </div>
   )
 }
@@ -974,3 +986,219 @@ function DataTab() {
     </div>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Desktop & Local Ollama Tab
+// ---------------------------------------------------------------------------
+
+function DesktopTab() {
+  const { notify } = useStore()
+  const navigate = useNavigate()
+  const { isInstalled } = usePWAInstall()
+
+  const [ollamaConfig, setOllamaConfig] = useState(loadOllamaConfig)
+  const [endpoint, setEndpoint] = useState(ollamaConfig.endpoint)
+  const [temp, setTemp] = useState(ollamaConfig.temperature)
+  const [models, setModels] = useState<OllamaModelInfo[]>([])
+  const [status, setStatus] = useState<'testing' | 'connected' | 'disconnected'>('testing')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    void checkConnection()
+  }, [])
+
+  const checkConnection = async () => {
+    setStatus('testing')
+    setErrorMsg(null)
+    const res = await testOllamaConnection(endpoint)
+    if (res.connected) {
+      setStatus('connected')
+      setModels(res.models)
+      if (res.models.length > 0 && !res.models.some((m) => m.name === ollamaConfig.selectedModel)) {
+        const next = saveOllamaConfig({ selectedModel: res.models[0].name })
+        setOllamaConfig(next)
+      }
+    } else {
+      setStatus('disconnected')
+      setErrorMsg(res.error || 'Failed to connect')
+    }
+  }
+
+  const handleSaveOllama = () => {
+    const next = saveOllamaConfig({
+      endpoint: endpoint.trim() || DEFAULT_OLLAMA_ENDPOINT,
+      temperature: temp,
+    })
+    setOllamaConfig(next)
+    notify('Ollama settings saved', 'success')
+    void checkConnection()
+  }
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      {/* Desktop App Installation & PWA */}
+      <Card>
+        <CardHeader
+          label="Desktop Application"
+          title={isInstalled ? 'Standalone Desktop App (Installed)' : 'Install FLUX for Desktop'}
+        />
+        <div className="space-y-4 p-widget">
+          <div className="flex items-center gap-3.5 rounded-lg border border-line/40 bg-sunken/40 p-3">
+            <img
+              src="/pwa-192x192.png"
+              alt="FLUX Desktop App Icon"
+              className="h-11 w-11 rounded-xl shadow-md border border-line/40 shrink-0 bg-void"
+            />
+            <div className="min-w-0 flex-1 text-body-xs">
+              <div className="flex items-center gap-2">
+                <span
+                  className={cx(
+                    'h-2 w-2 rounded-full',
+                    isInstalled ? 'bg-emerald animate-pulse' : 'bg-primary'
+                  )}
+                />
+                <span className="font-semibold text-ink">
+                  {isInstalled ? 'Running in Standalone Window' : 'Running in Web Browser'}
+                </span>
+              </div>
+              <span className="text-ink-dim block mt-0.5">
+                {isInstalled
+                  ? 'FLUX is running as a local Mac application.'
+                  : 'Install FLUX to launch it directly from your Mac Dock.'}
+              </span>
+            </div>
+            {!isInstalled && (
+              <PWAInstallButton size="sm" variant="primary" label="Install App" />
+            )}
+          </div>
+
+          <div className="space-y-2 text-body-xs text-ink-dim">
+            <h4 className="font-semibold text-ink">Desktop Features & Local Advantages</h4>
+            <ul className="space-y-1.5 list-disc list-inside">
+              <li><strong className="text-ink">100% Private Offline Storage:</strong> Workspace data is stored locally in IndexedDB.</li>
+              <li><strong className="text-ink">Direct Ollama Integration:</strong> Connects to your local AI daemon (<code className="text-primary font-mono">localhost:11434</code>).</li>
+              <li><strong className="text-ink">Fast Keyboard Navigation:</strong> Press <kbd className="rounded border border-line/60 bg-panel px-1 font-mono text-[10px]">⌘K</kbd> / <kbd className="rounded border border-line/60 bg-panel px-1 font-mono text-[10px]">Ctrl+K</kbd> anywhere.</li>
+            </ul>
+          </div>
+
+          <div className="pt-2">
+            <Button
+              icon="sparkle"
+              variant="ghost"
+              onClick={() => navigate('/reports')}
+            >
+              Open AI Reports & Summaries
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Ollama Local LLM Configuration */}
+      <Card>
+        <CardHeader label="Local LLM" title="Ollama Daemon Configuration" />
+        <div className="space-y-4 p-widget">
+          {/* Status badge */}
+          <div className="flex items-center justify-between gap-2 rounded-md border border-line/40 bg-sunken/40 p-3 text-body-xs">
+            <div className="flex items-center gap-2">
+              <span
+                className={cx(
+                  'h-2.5 w-2.5 rounded-full',
+                  status === 'connected'
+                    ? 'bg-emerald animate-pulse'
+                    : status === 'testing'
+                    ? 'bg-amber animate-ping'
+                    : 'bg-danger'
+                )}
+              />
+              <span className="font-semibold text-ink">
+                {status === 'connected'
+                  ? `Connected (${models.length} model${models.length === 1 ? '' : 's'} available)`
+                  : status === 'testing'
+                  ? 'Connecting to daemon...'
+                  : 'Disconnected / Offline'}
+              </span>
+            </div>
+            <Button size="sm" variant="quiet" icon="refresh" onClick={() => void checkConnection()}>
+              Test
+            </Button>
+          </div>
+
+          {errorMsg && (
+            <div className="rounded bg-danger/10 border border-danger/30 p-2.5 text-body-xs text-danger">
+              {errorMsg}
+            </div>
+          )}
+
+          <Field label="Ollama Server URL" hint="Default local address: http://localhost:11434">
+            <Input
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              placeholder="http://localhost:11434"
+              className="font-mono text-body-sm"
+            />
+          </Field>
+
+          <Field label="Default Model for Reports">
+            <Select
+              value={ollamaConfig.selectedModel}
+              onChange={(e) => {
+                const next = saveOllamaConfig({ selectedModel: e.target.value })
+                setOllamaConfig(next)
+              }}
+            >
+              {models.length > 0 ? (
+                models.map((m) => (
+                  <option key={m.name} value={m.name}>
+                    {m.name} {m.parameterSize ? `(${m.parameterSize})` : ''}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="llama3.2:latest">llama3.2:latest</option>
+                  <option value="llama3.1:8b">llama3.1:8b</option>
+                  <option value="mistral:latest">mistral:latest</option>
+                  <option value="gemma2:9b">gemma2:9b</option>
+                  <option value="qwen2.5:7b">qwen2.5:7b</option>
+                  <option value="deepseek-r1:8b">deepseek-r1:8b</option>
+                </>
+              )}
+            </Select>
+          </Field>
+
+          <Field label={`Model Temperature / Creativity: ${temp}`}>
+            <input
+              type="range"
+              min="0.0"
+              max="1.0"
+              step="0.05"
+              value={temp}
+              onChange={(e) => setTemp(parseFloat(e.target.value))}
+              className="w-full accent-primary"
+            />
+            <div className="flex justify-between text-label-micro text-ink-faint font-mono">
+              <span>0.0 (Precise / Structured)</span>
+              <span>1.0 (Creative)</span>
+            </div>
+          </Field>
+
+          <div className="rounded-md border border-line/40 bg-sunken/40 p-3 text-body-xs space-y-1.5">
+            <div className="font-semibold text-ink">Enable Browser CORS on Ollama</div>
+            <div className="text-ink-dim">
+              Set the environment variable when launching Ollama:
+            </div>
+            <code className="block rounded bg-panel p-2 font-mono text-label-micro text-emerald selection:bg-primary/20">
+              OLLAMA_ORIGINS="*" ollama serve
+            </code>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="primary" onClick={handleSaveOllama}>
+              Save Ollama Settings
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  )
+}
+

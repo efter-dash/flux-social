@@ -131,7 +131,7 @@ export function ContentFilterBar({
       </div>
 
       {/* Scope switch is always visible — it is the filter people change most. */}
-      <div className="no-scrollbar -mx-1 flex items-center gap-1.5 overflow-x-auto px-1">
+      <div className="no-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 py-1 touch-pan-x">
         {([
           { id: 'month', label: 'This month' },
           { id: 'open', label: 'Open work' },

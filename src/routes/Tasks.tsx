@@ -146,7 +146,7 @@ export function TasksPage() {
           {buckets.overdue.length > 0 && (
             <button
               onClick={() => setBucket('overdue')}
-              className="inline-flex items-center gap-1.5 rounded-full bg-danger/15 px-3 py-1 font-mono text-label-caps uppercase text-danger transition-colors hover:bg-danger/25"
+              className="inline-flex items-center gap-1.5 rounded-full border border-danger/40 bg-danger/15 px-3.5 py-1.5 sm:px-3 sm:py-1 min-h-[38px] sm:min-h-[32px] font-mono text-label-caps uppercase font-semibold text-danger transition-all hover:bg-danger/25 active:scale-[0.98] touch-manipulation shadow-xs"
             >
               <Icon name="alert" size={13} />
               {buckets.overdue.length} overdue

@@ -82,7 +82,19 @@ export function Dashboard() {
       <SectionTitle
         title="Dashboard"
         blurb={`${workspace.name} · every figure below is calculated from the plan, tasks and pipeline.`}
-        action={<MonthNav month={month} onChange={setMonth} />}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="sparkle"
+              onClick={() => navigate('/reports')}
+            >
+              AI Reports (Ollama)
+            </Button>
+            <MonthNav month={month} onChange={setMonth} />
+          </div>
+        }
       />
 
       {/* -------- Attention banner -------- */}

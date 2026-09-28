@@ -140,8 +140,8 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       title={label}
       className={cx(
-        'inline-flex shrink-0 items-center justify-center rounded-lg border transition-all duration-150',
-        size === 'sm' ? 'h-8 w-8' : 'h-9.5 w-9.5',
+        'inline-flex shrink-0 items-center justify-center rounded-lg border transition-all duration-150 touch-manipulation active:scale-[0.96]',
+        size === 'sm' ? 'h-9 w-9 sm:h-8 sm:w-8' : 'h-10 w-10 sm:h-9.5 sm:w-9.5',
         active
           ? 'border-accent/50 bg-accent/15 text-primary shadow-xs'
           : tone === 'danger'
@@ -174,23 +174,42 @@ export function StatusChip({
   children,
   dot = true,
   className,
+  size = 'md',
+  onClick,
+  title,
 }: {
   tone?: Tone
   children: ReactNode
   dot?: boolean
   className?: string
+  size?: 'sm' | 'md'
+  onClick?: () => void
+  title?: string
 }) {
+  const Tag = onClick ? 'button' : 'span'
   return (
-    <span
+    <Tag
+      onClick={onClick}
+      type={onClick ? 'button' : undefined}
+      title={title}
       className={cx(
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-micro uppercase',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-mono uppercase transition-all duration-150',
+        onClick &&
+          'cursor-pointer select-none touch-manipulation active:scale-[0.98] hover:brightness-110 shadow-xs ring-1 ring-white/10',
+        size === 'sm'
+          ? onClick
+            ? 'min-h-[36px] px-3 py-1.5 text-label-caps sm:min-h-[26px] sm:px-2.5 sm:py-0.5 sm:text-label-micro'
+            : 'min-h-[22px] px-2.5 py-0.5 text-label-micro'
+          : onClick
+            ? 'min-h-[38px] px-3.5 py-1.5 text-label-caps font-semibold sm:min-h-[28px] sm:px-3 sm:py-1'
+            : 'min-h-[24px] px-2.5 py-1 text-label-caps sm:text-label-micro font-medium',
         TONE_BG[tone],
         className,
       )}
     >
-      {dot && <StatusDot tone={tone} />}
+      {dot && <StatusDot tone={tone} size={size === 'sm' ? 5 : 6} />}
       {children}
-    </span>
+    </Tag>
   )
 }
 
@@ -219,12 +238,15 @@ export function Chip({
   return (
     <Tag
       onClick={onClick}
+      type={onClick ? 'button' : undefined}
       className={cx(
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-body-xs font-medium transition-all duration-150',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border transition-all duration-150',
+        onClick
+          ? 'cursor-pointer active:scale-[0.98] select-none touch-manipulation min-h-[40px] px-4 py-2 text-body-xs font-medium sm:min-h-[32px] sm:px-3.5 sm:py-1'
+          : 'min-h-[26px] px-3 py-1 text-body-xs font-medium',
         active
-          ? 'border-accent/70 bg-accent/15 font-semibold text-primary shadow-xs'
-          : 'border-line/60 bg-sunken/50 text-ink-dim hover:border-line hover:bg-raised/60 hover:text-ink',
-        onClick && 'cursor-pointer active:scale-[0.98]',
+          ? 'border-accent bg-accent/20 font-semibold text-primary shadow-xs ring-1 ring-accent/35'
+          : 'border-line/75 bg-sunken/60 text-ink-dim hover:border-line hover:bg-raised/70 hover:text-ink',
         className,
       )}
     >
@@ -240,9 +262,9 @@ export function PlatformChip({ label, color, size = 'md' }: { label: string; col
     <span
       className={cx(
         'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-mono uppercase',
-        size === 'sm' ? 'px-1.5 py-0.5 text-label-micro' : 'px-2 py-0.5 text-label-caps',
+        size === 'sm' ? 'px-2 py-0.5 text-label-micro' : 'px-2.5 py-1 text-label-caps font-medium',
       )}
-      style={{ backgroundColor: `${c}30`, color: c }}
+      style={{ backgroundColor: `${c}25`, color: c, border: `1px solid ${c}40` }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c, boxShadow: `0 0 6px ${c}` }} />
       {label}
@@ -622,7 +644,13 @@ export function Tabs<T extends string>({
   className?: string
 }) {
   return (
-    <div className={cx('no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1', className)} role="tablist">
+    <div
+      className={cx(
+        'no-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 py-1 touch-pan-x',
+        className,
+      )}
+      role="tablist"
+    >
       {tabs.map((t) => {
         const active = t.id === value
         return (
@@ -632,14 +660,27 @@ export function Tabs<T extends string>({
             aria-selected={active}
             onClick={() => onChange(t.id)}
             className={cx(
-              'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 font-mono text-label-caps uppercase transition-all duration-150',
+              'group inline-flex shrink-0 items-center justify-center rounded-full border transition-all duration-150 select-none touch-manipulation active:scale-[0.98]',
+              // Smartphone touch target: min-h-[42px] with px-4 py-2; desktop: min-h-[36px] with px-3.5 py-1.5
+              'min-h-[42px] px-4 py-2 text-body-xs font-semibold sm:min-h-[36px] sm:px-3.5 sm:py-1.5 sm:font-mono sm:text-label-caps sm:uppercase',
               active
-                ? 'border-accent/70 bg-accent/15 font-bold text-primary shadow-xs'
-                : 'border-line/60 bg-sunken/40 text-ink-dim hover:border-line hover:bg-raised/60 hover:text-ink',
+                ? 'border-accent bg-accent/20 text-primary shadow-xs ring-1 ring-accent/40 hover:bg-accent/25'
+                : 'border-line/75 bg-sunken/70 text-ink-dim hover:border-line hover:bg-raised hover:text-ink',
             )}
           >
-            {t.label}
-            {t.count !== undefined && <span className="ml-1.5 opacity-70">({t.count})</span>}
+            <span>{t.label}</span>
+            {t.count !== undefined && (
+              <span
+                className={cx(
+                  'ml-2 inline-flex items-center justify-center rounded-full px-2 py-0.5 font-mono text-[11px] leading-none transition-colors',
+                  active
+                    ? 'bg-primary/25 font-bold text-primary'
+                    : 'border border-line/50 bg-panel/70 text-ink-faint group-hover:text-ink-dim',
+                )}
+              >
+                {t.count}
+              </span>
+            )}
           </button>
         )
       })}
@@ -666,9 +707,9 @@ export function Segmented<T extends string>({
             key={o.id}
             onClick={() => onChange(o.id)}
             className={cx(
-              'inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-body-xs font-medium transition-all duration-150',
+              'inline-flex items-center gap-1.5 rounded-md border min-h-[38px] px-3.5 py-1.5 text-body-xs sm:min-h-[30px] sm:px-3 sm:py-1 font-medium transition-all duration-150 touch-manipulation active:scale-[0.98]',
               active
-                ? 'border-line/60 bg-panel text-ink shadow-xs'
+                ? 'border-line/60 bg-panel text-ink shadow-xs font-semibold'
                 : 'border-transparent text-ink-faint hover:text-ink hover:bg-raised/50',
             )}
           >

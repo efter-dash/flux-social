@@ -14,7 +14,9 @@ import { Icon } from '@/components/ui/Icon'
 import { FluxLogo } from '@/components/ui/FluxLogo'
 import { Avatar, Button, IconButton, Spinner, StatusDot, cx } from '@/components/ui/primitives'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
-import { Sheet } from '@/components/ui/Overlay'
+import { Sheet, useConfirm } from '@/components/ui/Overlay'
+import { PWAInstallButton } from '@/components/ui/PWAInstallButton'
+import { OfflineIndicator } from '@/components/ui/OfflineIndicator'
 import { useStore } from '@/state/store'
 import { APP_NAME, APP_TAGLINE } from '@/brand'
 import { BOTTOM_NAV, GROUP_LABEL, NAV, type NavItem } from './nav'
@@ -23,15 +25,31 @@ import { NotificationPanel, useAlerts } from './NotificationPanel'
 import { fmtMonth } from '@/lib/date'
 
 export function AppShell() {
-  const { data, me, user, signOut, memberships, openWorkspace, canEdit, month } = useStore()
+  const { data, me, user, signOut, memberships, openWorkspace, canEdit, month, deleteWorkspace, access } = useStore()
   const location = useLocation()
   const navigate = useNavigate()
+  const confirm = useConfirm()
   const [moreOpen, setMoreOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   usePaletteShortcut(setPaletteOpen)
   const { visible: alerts } = useAlerts()
+
+  const handleDeleteWorkspace = (workspaceId: string, workspaceName: string) => {
+    confirm.ask({
+      title: `Delete ${workspaceName}?`,
+      body: `This will permanently delete "${workspaceName}" along with all content items, tasks, ideas, reviews, and team member records. This action cannot be undone.`,
+      confirmLabel: 'Delete workspace permanently',
+      danger: true,
+      onConfirm: async () => {
+        if (workspaceId === data?.workspace.id) {
+          setSwitcherOpen(false)
+        }
+        await deleteWorkspace(workspaceId)
+      },
+    })
+  }
 
   // Close transient surfaces on navigation.
   useEffect(() => {
@@ -145,6 +163,8 @@ export function AppShell() {
 
               <ThemeToggle />
 
+              <PWAInstallButton size="sm" variant="ghost" label="Install App" className="hidden sm:inline-flex" />
+
               <div className="relative">
                 <IconButton icon="bell" label="Notifications" onClick={() => setNotifOpen(true)} />
                 {alerts.length > 0 && (
@@ -237,49 +257,97 @@ export function AppShell() {
         open={switcherOpen}
         onClose={() => setSwitcherOpen(false)}
         title="Workspaces"
-        subtitle="Switch team, or start a new one"
+        subtitle="Switch team, manage, or start a new one"
         size="sm"
       >
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {memberships.map((m) => {
             const active = m.workspaceId === data.workspace.id
+            const canDelete = m.access === 'owner' || (active && access === 'owner')
             return (
-              <li key={m.workspaceId}>
+              <li key={m.workspaceId} className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
                     setSwitcherOpen(false)
                     if (!active) void openWorkspace(m.workspaceId)
                   }}
                   className={cx(
-                    'flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors',
-                    active ? 'border-accent/50 bg-accent/10' : 'border-line/50 bg-panel hover:bg-raised/60',
+                    'flex min-w-0 flex-1 items-center gap-3 rounded-md border p-3 text-left transition-colors touch-manipulation',
+                    active ? 'border-accent/60 bg-accent/10 shadow-xs' : 'border-line/50 bg-panel hover:bg-raised/60',
                   )}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-sunken font-mono text-body-xs text-primary">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-sunken font-mono text-body-xs font-semibold text-primary">
                     {m.initials}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-body-sm text-ink">{m.workspaceName}</span>
+                    <span className="block truncate text-body-sm font-medium text-ink">{m.workspaceName}</span>
                     <span className="block truncate font-mono text-label-micro uppercase text-ink-faint">{m.access}</span>
                   </span>
                   {active && <StatusDot tone="primary" />}
                 </button>
+                {canDelete && (
+                  <IconButton
+                    icon="trash"
+                    label={`Delete ${m.workspaceName}`}
+                    tone="danger"
+                    size="sm"
+                    className="shrink-0 text-ink-faint hover:text-danger touch-manipulation"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteWorkspace(m.workspaceId, m.workspaceName)
+                    }}
+                  />
+                )}
               </li>
             )
           })}
         </ul>
-        <div className="mt-4 grid gap-2">
-          <Button icon="plus" onClick={() => navigate('/welcome?mode=create')}>
-            Create a workspace
-          </Button>
-          <Button variant="quiet" icon="key" onClick={() => navigate('/welcome?mode=join')}>
-            Join with a code
-          </Button>
+
+        <div className="mt-4 space-y-2 border-t border-line/40 pt-3">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="md"
+              icon="plus"
+              className="min-h-[44px] touch-manipulation font-semibold text-body-sm active:scale-[0.98]"
+              onClick={() => {
+                setSwitcherOpen(false)
+                navigate('/welcome?mode=create')
+              }}
+            >
+              Create workspace
+            </Button>
+            <Button
+              variant="quiet"
+              size="md"
+              icon="key"
+              className="min-h-[44px] touch-manipulation font-medium text-body-sm active:scale-[0.98]"
+              onClick={() => {
+                setSwitcherOpen(false)
+                navigate('/welcome?mode=join')
+              }}
+            >
+              Join with code
+            </Button>
+          </div>
+          {access === 'owner' && (
+            <Button
+              variant="danger"
+              size="md"
+              icon="trash"
+              block
+              className="min-h-[42px] touch-manipulation font-medium active:scale-[0.98]"
+              onClick={() => handleDeleteWorkspace(data.workspace.id, data.workspace.name)}
+            >
+              Delete current workspace
+            </Button>
+          )}
         </div>
       </Sheet>
 
       <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <OfflineIndicator />
+      {confirm.element}
     </div>
   )
 }

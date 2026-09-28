@@ -112,7 +112,12 @@ export function TaskRow({ task, compact = false }: { task: TaskItem; compact?: b
               <Avatar name={memberName(data.members, task.memberId)} size={22} />
             </span>
           )}
-          <StatusChip tone={tone} className="hidden sm:inline-flex">
+          <StatusChip
+            tone={tone}
+            onClick={canEdit ? () => void toggleTask(task.id) : undefined}
+            title={canEdit ? (done ? 'Click to reopen task' : 'Click to mark as done') : undefined}
+            className="inline-flex"
+          >
             {statusLabel}
           </StatusChip>
           {canEdit && (

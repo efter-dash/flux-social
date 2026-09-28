@@ -200,10 +200,10 @@ export function LibraryPage() {
                 key={s.id}
                 onClick={() => setSort(s.id)}
                 className={cx(
-                  'rounded-full border px-3 py-1 text-body-xs transition-colors',
+                  'inline-flex items-center rounded-full border min-h-[38px] px-3.5 py-1.5 sm:min-h-[32px] sm:px-3 sm:py-1 text-body-xs font-medium transition-all duration-150 touch-manipulation active:scale-[0.98]',
                   sort === s.id
-                    ? 'border-accent/60 bg-accent/15 text-primary'
-                    : 'border-line/60 bg-sunken/60 text-ink-dim hover:border-line',
+                    ? 'border-accent bg-accent/20 font-semibold text-primary shadow-xs ring-1 ring-accent/30'
+                    : 'border-line/75 bg-sunken/60 text-ink-dim hover:border-line hover:bg-raised/70 hover:text-ink',
                 )}
               >
                 {s.label}

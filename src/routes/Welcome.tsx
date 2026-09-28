@@ -11,8 +11,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Icon } from '@/components/ui/Icon'
 import { FluxLogo } from '@/components/ui/FluxLogo'
-import { Button, Field, Input, Toggle, cx } from '@/components/ui/primitives'
+import { Button, Field, IconButton, Input, Toggle, cx } from '@/components/ui/primitives'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { useConfirm } from '@/components/ui/Overlay'
 import { useStore } from '@/state/store'
 import { APP_NAME, APP_TAGLINE } from '@/brand'
 import { PIPELINE_TEMPLATES } from '@/lib/templates'
@@ -20,10 +21,11 @@ import { PIPELINE_TEMPLATES } from '@/lib/templates'
 type Mode = 'create' | 'join'
 
 export function Welcome() {
-  const { user, memberships, data, signIn, signInAs, backend, createWorkspace, joinByCode, notify, openWorkspace } =
+  const { user, memberships, data, signIn, signInAs, backend, createWorkspace, joinByCode, notify, openWorkspace, deleteWorkspace } =
     useStore()
   const navigate = useNavigate()
   const location = useLocation()
+  const confirm = useConfirm()
   const [params] = useSearchParams()
   const [mode, setMode] = useState<Mode>((params.get('mode') as Mode) ?? 'create')
 
@@ -174,14 +176,14 @@ export function Welcome() {
         /* -------- Step 2: workspace -------- */
         <div className="w-full max-w-4xl grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="rounded-lg border border-line/60 bg-panel p-5">
-            <div className="mb-5 inline-flex rounded border border-line/60 bg-sunken p-0.5">
+            <div className="mb-5 inline-flex w-full sm:w-auto rounded-lg border border-line/60 bg-sunken p-1">
               {(['create', 'join'] as Mode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setMode(m)}
                   className={cx(
-                    'rounded-[0.35rem] px-3.5 py-1.5 text-body-sm font-medium transition-colors',
-                    mode === m ? 'bg-raised text-ink' : 'text-ink-faint hover:text-ink-dim',
+                    'flex-1 sm:flex-initial rounded-md min-h-[42px] px-4 py-2 text-body-sm font-semibold transition-all touch-manipulation active:scale-[0.98]',
+                    mode === m ? 'bg-raised text-ink shadow-xs' : 'text-ink-faint hover:text-ink-dim',
                   )}
                 >
                   {m === 'create' ? 'Create a workspace' : 'Join with a code'}
@@ -262,7 +264,15 @@ export function Welcome() {
                   </div>
                 </div>
 
-                <Button variant="primary" block icon="arrow-right" loading={busy} onClick={() => void doCreate()}>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  block
+                  icon="arrow-right"
+                  loading={busy}
+                  className="h-13 sm:h-12 min-h-[52px] sm:min-h-[48px] px-6 text-base font-semibold shadow-sm touch-manipulation active:scale-[0.99]"
+                  onClick={() => void doCreate()}
+                >
                   Create workspace
                 </Button>
               </div>
@@ -289,10 +299,12 @@ export function Welcome() {
                 )}
                 <Button
                   variant="primary"
+                  size="lg"
                   block
                   icon="key"
                   loading={busy}
                   disabled={code.trim().length < 6}
+                  className="h-13 sm:h-12 min-h-[52px] sm:min-h-[48px] px-6 text-base font-semibold shadow-sm touch-manipulation active:scale-[0.99]"
                   onClick={() => void doJoin()}
                 >
                   Join workspace
@@ -308,20 +320,39 @@ export function Welcome() {
                 <h3 className="label-caps font-bold text-ink">Your workspaces</h3>
                 <ul className="mt-2 space-y-1.5">
                   {memberships.map((m) => (
-                    <li key={m.workspaceId}>
+                    <li key={m.workspaceId} className="flex items-center gap-1.5">
                       <button
                         onClick={() => {
                           void openWorkspace(m.workspaceId)
                           navigate('/')
                         }}
-                        className="flex w-full items-center gap-2.5 rounded-md border border-line/50 bg-sunken/50 p-2.5 text-left transition-colors hover:border-line"
+                        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md border border-line/50 bg-sunken/50 p-2.5 text-left transition-colors hover:border-line touch-manipulation"
                       >
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-accent/15 font-mono text-body-xs text-primary">
                           {m.initials}
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-body-sm text-ink">{m.workspaceName}</span>
+                        <span className="min-w-0 flex-1 truncate text-body-sm font-medium text-ink">{m.workspaceName}</span>
                         <Icon name="chevron-right" size={15} className="shrink-0 text-ink-faint" />
                       </button>
+                      {m.access === 'owner' && (
+                        <IconButton
+                          icon="trash"
+                          label={`Delete ${m.workspaceName}`}
+                          tone="danger"
+                          size="sm"
+                          className="shrink-0 text-ink-faint hover:text-danger touch-manipulation"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            confirm.ask({
+                              title: `Delete ${m.workspaceName}?`,
+                              body: `This permanently removes "${m.workspaceName}" and all associated data. This action cannot be undone.`,
+                              confirmLabel: 'Delete workspace permanently',
+                              danger: true,
+                              onConfirm: () => void deleteWorkspace(m.workspaceId),
+                            })
+                          }}
+                        />
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -349,6 +380,7 @@ export function Welcome() {
           </aside>
         </div>
       )}
+      {confirm.element}
     </div>
   )
 }

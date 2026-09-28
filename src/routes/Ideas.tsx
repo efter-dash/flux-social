@@ -225,7 +225,7 @@ export function IdeasPage() {
                     />
                     <span className="font-mono text-label-micro uppercase text-ink-faint">{idea.contentType}</span>
                     <PriorityFlag priority={idea.priority} />
-                    <Chip className="!py-0.5">
+                    <Chip>
                       <Icon name="target" size={11} />
                       {idea.potential} potential
                     </Chip>

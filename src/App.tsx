@@ -22,6 +22,7 @@ import { PublishingPage } from '@/routes/Publishing'
 import { LibraryPage } from '@/routes/Library'
 import { TeamPage } from '@/routes/Team'
 import { ReviewPage } from '@/routes/Review'
+import { ReportsPage } from '@/routes/Reports'
 import { SettingsPage } from '@/routes/Settings'
 import { NotFound } from '@/routes/NotFound'
 
@@ -71,6 +72,7 @@ export function App() {
             <Route path="library" element={<LibraryPage />} />
             <Route path="team" element={<TeamPage />} />
             <Route path="review" element={<ReviewPage />} />
+            <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>

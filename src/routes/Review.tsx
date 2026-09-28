@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Avatar,
   Button,
@@ -51,6 +51,7 @@ const NOTE_FIELDS: { key: keyof WeeklyReview; label: string; placeholder: string
 
 export function ReviewPage() {
   const { data, month, setMonth, canEdit, upsertReview, ensureReview } = useStore()
+  const navigate = useNavigate()
   const [activeWeek, setActiveWeek] = useState<string | null>(null)
   const [draft, setDraft] = useState<WeeklyReview | null>(null)
   const [saving, setSaving] = useState(false)
@@ -105,7 +106,19 @@ export function ReviewPage() {
       <SectionTitle
         title="Weekly review"
         blurb="A ready-made agenda for the weekly meeting: the numbers are computed, the notes are yours."
-        action={<MonthNav month={month} onChange={setMonth} />}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="sparkle"
+              onClick={() => navigate('/reports')}
+            >
+              AI Summaries (Ollama)
+            </Button>
+            <MonthNav month={month} onChange={setMonth} />
+          </div>
+        }
       />
 
       {/* -------- Week picker -------- */}

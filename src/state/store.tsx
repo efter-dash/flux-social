@@ -442,14 +442,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteWorkspace = useCallback(
     async (id: string) => {
-      if (!guard(access === 'owner', 'delete this workspace')) return
+      const isCurrent = data?.workspace.id === id
+      const mem = memberships.find((m) => m.workspaceId === id)
+      const isOwner = isCurrent ? access === 'owner' : mem ? mem.access === 'owner' : access === 'owner'
+      if (!guard(isOwner, 'delete this workspace')) return
+
       await repo().deleteWorkspace(id)
-      if (user) setMemberships(await repo().listMemberships(user.uid))
-      localStorage.removeItem(ACTIVE_WS_KEY)
-      setData(null)
+      if (user) {
+        const remaining = await repo().listMemberships(user.uid)
+        setMemberships(remaining)
+        if (isCurrent) {
+          if (remaining[0]) {
+            await openWorkspaceInternal(remaining[0].workspaceId)
+          } else {
+            localStorage.removeItem(ACTIVE_WS_KEY)
+            setData(null)
+          }
+        }
+      } else {
+        localStorage.removeItem(ACTIVE_WS_KEY)
+        setData(null)
+      }
       notify('Workspace deleted')
     },
-    [access, guard, user, notify],
+    [access, guard, user, notify, data?.workspace.id, memberships, openWorkspaceInternal],
   )
 
   const updateWorkspace = useCallback<StoreValue['updateWorkspace']>(
