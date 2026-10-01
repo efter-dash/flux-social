@@ -1081,7 +1081,16 @@ function DesktopTab() {
             </ul>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 flex flex-wrap items-center gap-2">
+            <a
+              href="/flux-desktop-local.zip"
+              download="flux-desktop-local.zip"
+              className="inline-flex"
+            >
+              <Button icon="download" variant="ghost">
+                Download Mac/Local Package (.zip)
+              </Button>
+            </a>
             <Button
               icon="sparkle"
               variant="ghost"
