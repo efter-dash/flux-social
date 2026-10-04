@@ -29,6 +29,14 @@ Runs entirely offline in your browser with local IndexedDB storage, or syncs acr
 
 ## Installation & Quick Start
 
+### 🎥 Step-by-Step Video Guide: How to Install FLUX
+
+[![How to Install FLUX](https://img.youtube.com/vi/gaE3bCCqc-0/maxresdefault.jpg)](https://youtu.be/gaE3bCCqc-0)
+
+> ▶️ **[Click to Watch the Step-by-Step Installation Video on YouTube](https://youtu.be/gaE3bCCqc-0)** — Complete guide on cloning, installing dependencies, and launching FLUX with desktop shortcuts.
+
+---
+
 ### Prerequisites
 - [Node.js](https://nodejs.org) (v18 or higher — download the recommended LTS installer for your OS)
 - [Git](https://git-scm.com) (or download the source ZIP)
