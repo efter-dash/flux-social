@@ -16,6 +16,8 @@ include_files = [
     "README-MAC.txt",
     "Launch-FLUX-Mac.command",
     "Start-Ollama-Mac.command",
+    "Launch-FLUX-Windows.bat",
+    "Start-Ollama-Windows.bat",
     "LICENSE",
     ".env.example"
 ]

@@ -14,7 +14,7 @@ Runs entirely offline in your browser with local IndexedDB storage, or syncs acr
 - **Content Idea Bank**: Funnel ideas from concept to approval, with 1-click promotion directly into the active production pipeline.
 - **Publishing & Analytics**: Metric tracking across platforms (Instagram, YouTube, TikTok, LinkedIn, X, Substack) with automated engagement rate calculations.
 - **AI Reports & Summaries (Ollama)**: 100% private, local LLM generation. Produces daily standup briefings, monthly retrospectives, and pipeline velocity audits without sending any data to external servers.
-- **Desktop Ready (PWA & 1-Click Launcher)**: Install directly to your Mac Dock or run as a standalone desktop window with offline support.
+- **Desktop Ready (PWA & 1-Click Launchers)**: Run as a standalone desktop window on macOS, Windows, and Linux with full offline support.
 - **Command Palette**: Press `⌘K` or `Ctrl+K` anywhere to jump between items, tasks, and settings instantly.
 
 ---
@@ -22,29 +22,33 @@ Runs entirely offline in your browser with local IndexedDB storage, or syncs acr
 ## Installation & Quick Start
 
 ### Prerequisites
-- [Node.js](https://nodejs.org) (v18 or higher)
+- [Node.js](https://nodejs.org) (v18 or higher — download the recommended LTS installer for your OS)
 - [Git](https://git-scm.com) (or download the source ZIP)
 
 ---
 
-### Option 1: 1-Click Launch on macOS (Recommended)
+### Option 1: 1-Click Launchers (Zero Terminal Commands Required)
 
-1. Clone or download this repository:
-   ```bash
-   git clone https://github.com/efter-dash/flux-social.git
-   cd flux-social
-   ```
+#### On Windows:
+1. Clone or download this repository (extract if downloaded as a `.zip`).
+2. Double-click **`Launch-FLUX-Windows.bat`**.
+   - Verifies your Node.js installation.
+   - Automatically installs dependencies (`npm install`) on first run.
+   - Checks if local Ollama is active.
+   - Starts the server and opens FLUX in your default browser at `http://localhost:3000`.
+
+#### On macOS:
+1. Clone or download this repository.
 2. Double-click **`Launch-FLUX-Mac.command`** in Finder.
-   - Automatically checks your environment.
-   - Installs dependencies on first run.
-   - Checks if your local Ollama daemon is active.
+   - Performs environment checks and auto-installs dependencies.
    - Launches FLUX in your default browser at `http://localhost:3000`.
-
-*(If macOS shows a security warning on the first run, right-click `Launch-FLUX-Mac.command` → select **Open** → click **Open**).*
+   *(If macOS shows a security prompt on first launch: right-click `Launch-FLUX-Mac.command` → select **Open** → click **Open**).*
 
 ---
 
-### Option 2: Standard Terminal Setup
+### Option 2: Standard Terminal / PowerShell Setup
+
+Works identically on **Windows (PowerShell / Command Prompt)**, **macOS**, and **Linux**:
 
 1. **Clone the repository:**
    ```bash
@@ -62,23 +66,28 @@ Runs entirely offline in your browser with local IndexedDB storage, or syncs acr
    npm run dev
    ```
 
-4. Open your browser at **`http://localhost:3000`**.
+4. Open your browser and go to:
+   ```text
+   http://localhost:3000
+   ```
 
 ---
 
-## Installing as a Desktop App on Mac
+## Installing as a Desktop App
 
-You can pin FLUX to your Mac Dock and run it in an independent app window without browser tabs:
+You can run FLUX in an independent app window without browser tabs or address bars:
 
-### Via Google Chrome or Brave
+### On Windows (Microsoft Edge, Google Chrome, or Brave)
 1. Open `http://localhost:3000` (or your hosted URL).
-2. Click the **Install** icon in the address bar (or click **Install App** in the FLUX header).
-3. Click **Install**. FLUX is now placed in your `/Applications` folder and your Mac Dock.
+2. **In Edge:** Click the **App Available** icon in the address bar (looks like 3 squares and a plus), or click **`...` → Apps → Install FLUX**.
+3. **In Chrome / Brave:** Click the **Install** icon on the right side of the address bar, or click **Install App** in the FLUX header.
+4. Check the options to **Pin to taskbar** and **Pin to Start Menu**.
+5. FLUX now launches like any native Windows desktop program!
 
-### Via Safari (macOS Sonoma / Sequoia)
-1. Open `http://localhost:3000` in Safari.
-2. In the macOS menu bar at the top, select **File → Add to Dock…**
-3. Click **Add**.
+### On macOS (Chrome, Brave, or Safari)
+1. Open `http://localhost:3000` in Chrome, Brave, or Safari.
+2. In Chrome/Brave: Click the **Install** icon in the address bar → **Install**.
+3. In Safari (macOS Sonoma / Sequoia): Go to **File → Add to Dock…** → click **Add**.
 
 ---
 
@@ -86,29 +95,43 @@ You can pin FLUX to your Mac Dock and run it in an independent app window withou
 
 FLUX includes on-device AI reporting that connects to your local Ollama daemon at `http://127.0.0.1:11434`.
 
-1. **Install Ollama:**
-   - Download from [ollama.com/download/mac](https://ollama.com/download/mac) or install via Homebrew:
-     ```bash
-     brew install ollama
-     ```
+### 1. Install Ollama
+- **Windows:** Download the installer from [ollama.com/download/windows](https://ollama.com/download/windows) and run the setup.
+- **macOS:** Download from [ollama.com/download/mac](https://ollama.com/download/mac) or install via Homebrew (`brew install ollama`).
+- **Linux:** Run `curl -fsSL https://ollama.com/install.sh | sh`.
 
-2. **Download a model:**
-   ```bash
-   ollama pull llama3.2
-   ```
-   *(FLUX also supports `mistral`, `qwen2.5`, `phi3`, or any model installed in Ollama).*
+### 2. Download a Model
+Open PowerShell, Command Prompt, or Terminal and pull your preferred model:
+```bash
+ollama pull llama3.2
+```
+*(FLUX also supports `mistral`, `qwen2.5`, `phi3`, or any model installed in your Ollama library).*
 
-3. **Start Ollama with web permissions:**
-   - Double-click **`Start-Ollama-Mac.command`**  
-   - *Or run via Terminal:*
-     ```bash
-     OLLAMA_ORIGINS="*" ollama serve
-     ```
+### 3. Start Ollama with Web Permissions (CORS)
+Browsers require CORS authorization to communicate with localhost ports:
 
-4. **Verify in FLUX:**
-   - Open FLUX and navigate to **Settings → Desktop & Ollama**.
-   - Check that the status shows **Connected**.
-   - Head to **AI Reports** in the sidebar to generate standup briefings, monthly recaps, and pipeline diagnostics.
+- **On Windows (1-Click):** Double-click **`Start-Ollama-Windows.bat`**  
+  *Or in PowerShell:*
+  ```powershell
+  $env:OLLAMA_ORIGINS="*"
+  ollama serve
+  ```
+  *Or in Command Prompt:*
+  ```cmd
+  set OLLAMA_ORIGINS=*
+  ollama serve
+  ```
+
+- **On macOS (1-Click):** Double-click **`Start-Ollama-Mac.command`**  
+  *Or in Terminal:*
+  ```bash
+  OLLAMA_ORIGINS="*" ollama serve
+  ```
+
+### 4. Verify & Use in FLUX
+1. In FLUX, navigate to **Settings → Desktop & Ollama**.
+2. Confirm the status shows a green **Connected** badge with your available models listed.
+3. Open **AI Reports** from the left navigation to generate daily standup briefings, monthly performance retrospectives, and pipeline velocity audits 100% on-device.
 
 ---
 
