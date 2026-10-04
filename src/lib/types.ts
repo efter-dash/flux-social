@@ -42,6 +42,8 @@ export interface Stage {
   ownerRole: string
   /** Short verb shown on the action button, e.g. "Write", "Shoot", "Edit". */
   verb?: string
+  /** Pipeline template ID this stage belongs to, if part of a multi-pipeline workflow. */
+  pipelineId?: string
 }
 
 export interface JobRole {
@@ -88,6 +90,8 @@ export interface Workspace {
   weekStartsOn: 0 | 1
   stages: Stage[]
   taxonomies: Taxonomies
+  /** Selected pipeline template IDs when multi-pipeline workflows are active. */
+  selectedPipelines?: string[]
   createdAt: string
   createdBy: string
 }
@@ -168,6 +172,101 @@ export interface ContentLinks {
   published: string
 }
 
+export type ProductionFormat = 'static' | 'video' | 'written' | 'brief'
+
+export interface ProductionMetadata {
+  // Photo shoot segment
+  shootStyle?: string
+  shootLocation?: string
+  shootDate?: string
+  talentNotes?: string
+  shotList?: string
+  rawFootageUrl?: string
+
+  // Video production & motion graphics segment
+  aspectRatio?: string
+  customRatio?: string
+  duration?: string
+  motionGraphicsNotes?: string
+  workfileUrl?: string
+  roughCutUrl?: string
+  soundNotes?: string
+  editingNotes?: string
+  videoHook?: string
+  trendingAudio?: string
+  subtitleStyle?: string
+  guestNotes?: string
+  chapterNotes?: string
+  animationTool?: string
+
+  // Static / Graphic design steps & subcategories
+  subCategory?: string
+  dimensions?: string
+  designTool?: string
+  figmaUrl?: string
+  visualBriefUrl?: string
+  designNotes?: string
+  exportFormat?: string
+
+  // Subcategory: Thumbnails
+  thumbnailPlatform?: string
+  thumbnailText?: string
+  thumbnailCutoutUrl?: string
+  abVariant?: string
+
+  // Subcategory: Carousels
+  slideCount?: number
+  carouselHookHeadline?: string
+  carouselOutline?: string
+  carouselVisualFlow?: string
+  carouselFinalCta?: string
+
+  // Subcategory: Graphic Posts
+  postStyle?: string
+  graphicHeadline?: string
+  focalAssetUrl?: string
+  backgroundStyle?: string
+
+  // Subcategory: Banners & Headers
+  bannerPlacement?: string
+  bannerTagline?: string
+  bannerSafeZoneNotes?: string
+  bannerCta?: string
+
+  // Subcategory: Infographics
+  infographicType?: string
+  infographicSectionCount?: number
+  dataSourceUrl?: string
+  infographicHierarchyNotes?: string
+
+  // Subcategory: Stories / Vertical
+  storyFrameCount?: number
+  storyInteractivity?: string
+  storyLinkUrl?: string
+  storySafeZoneNotes?: string
+
+  // Written content
+  wordCountTarget?: number
+  draftUrl?: string
+  seoKeywords?: string
+  outlineNotes?: string
+  editorialTone?: string
+  proofreadNotes?: string
+  subjectLine?: string
+  threadCount?: number
+  clientSubject?: string
+  keyMetrics?: string
+
+  // Strategic Briefing
+  clientName?: string
+  deliverables?: string
+  callToAction?: string
+  moodboardUrl?: string
+  clientSignoffDate?: string
+  campaignBudget?: string
+  scopeSummary?: string
+}
+
 export interface ContentItem {
   id: string
   workspaceId: string
@@ -179,6 +278,10 @@ export interface ContentItem {
   topic: string
   contentType: string
   category: string
+  /** Primary format category: static, video, written, or brief. */
+  productionFormat?: ProductionFormat
+  /** Format-specific production segments (shoot, design, editorial, brief). */
+  productionMeta?: ProductionMetadata
   /** Primary platform; performance is tracked against this one. */
   platform: string
   /** Additional platforms the same asset gets cross-posted to. */
@@ -187,6 +290,8 @@ export interface ContentItem {
   audience: string
   /** Member id accountable for the whole item. */
   ownerId: string
+  /** Specific production pipeline ID if multi-pipeline workflows are active. */
+  pipelineId?: string
   /** stageId -> member id. Generalises the sheet's Script/Shoot/Edit owners. */
   stageAssignees: Record<string, string>
   /** stageId -> ISO date. Generalises the sheet's per-stage deadlines. */

@@ -17,6 +17,7 @@ import { useConfirm } from '@/components/ui/Overlay'
 import { useStore } from '@/state/store'
 import { APP_NAME, APP_TAGLINE } from '@/brand'
 import { PIPELINE_TEMPLATES } from '@/lib/templates'
+import { mergePipelines } from '@/lib/pipelineMerge'
 
 type Mode = 'create' | 'join'
 
@@ -38,7 +39,7 @@ export function Welcome() {
 
   // Create form
   const [wsName, setWsName] = useState('')
-  const [templateId, setTemplateId] = useState('video')
+  const [selectedPipelines, setSelectedPipelines] = useState<string[]>(['video'])
   const [prefix, setPrefix] = useState('CN')
   const [mondayStart, setMondayStart] = useState(true)
   const [withSample, setWithSample] = useState(true)
@@ -53,7 +54,16 @@ export function Welcome() {
     if (user && data && !params.get('mode')) navigate(returnTo, { replace: true })
   }, [user, data, params, navigate, returnTo])
 
-  const template = useMemo(() => PIPELINE_TEMPLATES.find((t) => t.id === templateId)!, [templateId])
+  const mergeReport = useMemo(() => mergePipelines(selectedPipelines), [selectedPipelines])
+
+  const togglePipeline = (id: string) => {
+    if (selectedPipelines.includes(id)) {
+      if (selectedPipelines.length === 1) return // Keep at least one active
+      setSelectedPipelines(selectedPipelines.filter((p) => p !== id))
+    } else {
+      setSelectedPipelines([...selectedPipelines, id])
+    }
+  }
 
   const doSignIn = async () => {
     setBusy(true)
@@ -76,7 +86,8 @@ export function Welcome() {
     try {
       await createWorkspace({
         name: wsName.trim(),
-        templateId,
+        templateId: selectedPipelines[0],
+        templateIds: selectedPipelines,
         contentPrefix: prefix.trim() || 'CN',
         weekStartsOn: mondayStart ? 1 : 0,
         withSample,
@@ -203,30 +214,110 @@ export function Welcome() {
                 </Field>
 
                 <div>
-                  <span className="mb-2 block label-caps font-bold text-ink">Production Pipeline</span>
-                  <div className="grid gap-2.5 sm:grid-cols-2">
-                    {PIPELINE_TEMPLATES.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => setTemplateId(t.id)}
-                        className={cx(
-                          'rounded-lg border p-3.5 text-left transition-colors',
-                          templateId === t.id
-                            ? 'border-accent/60 bg-accent/10 ring-1 ring-accent/30'
-                            : 'border-line/50 bg-sunken/50 hover:border-line',
-                        )}
-                      >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="text-body-sm font-bold text-ink">{t.name}</span>
-                          {templateId === t.id && <Icon name="check" size={15} className="shrink-0 text-primary" />}
-                        </span>
-                        <span className="mt-1 block text-body-xs text-ink-dim leading-relaxed">{t.blurb}</span>
-                      </button>
-                    ))}
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="label-caps font-bold text-ink">Production Pipelines</span>
+                    <span className="text-body-xs text-primary font-medium">
+                      {selectedPipelines.length} selected {selectedPipelines.length > 1 && '· Merged'}
+                    </span>
                   </div>
-                  <p className="mt-2 text-body-xs text-ink-faint">
-                    <strong className="font-semibold text-ink-dim">Stages:</strong> {template.stages.map((s) => s.name).join(' → ')} · fully editable later in Settings.
+                  <p className="mb-3 text-body-xs text-ink-dim">
+                    Select one or more pipelines. If you produce both video and design work, select both — repeating stages (like Review) merge into a single, unified flow.
                   </p>
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    {PIPELINE_TEMPLATES.map((t) => {
+                      const isSelected = selectedPipelines.includes(t.id)
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => togglePipeline(t.id)}
+                          className={cx(
+                            'relative rounded-lg border p-3.5 text-left transition-all',
+                            isSelected
+                              ? 'border-primary/70 bg-accent/15 ring-1 ring-primary/40 shadow-sm'
+                              : 'border-line/50 bg-sunken/50 hover:border-line hover:bg-sunken/70',
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <span className="block text-body-sm font-bold text-ink">{t.name}</span>
+                              <span className="mt-1 block text-body-xs text-ink-dim leading-relaxed">{t.blurb}</span>
+                            </div>
+                            <span
+                              className={cx(
+                                'flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors',
+                                isSelected
+                                  ? 'border-primary bg-primary text-white'
+                                  : 'border-line/80 bg-raised/80 text-transparent',
+                              )}
+                            >
+                              <Icon name="check" size={13} />
+                            </span>
+                          </div>
+                          <div className="mt-2.5 flex flex-wrap items-center gap-1 font-mono text-label-micro text-ink-faint">
+                            {t.stages.map((s, idx) => (
+                              <span key={s.name} className="flex items-center gap-1">
+                                {idx > 0 && <span className="opacity-40">→</span>}
+                                <span>{s.name}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* Pipeline Merge Banner & Stage Preview */}
+                  <div className="mt-3 rounded-lg border border-line/60 bg-sunken/50 p-3.5">
+                    {selectedPipelines.length > 1 ? (
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/25 text-primary text-body-xs font-bold">
+                            🔀
+                          </span>
+                          <span className="text-body-xs font-bold text-ink">
+                            Merged Production Pipeline ({mergeReport.stages.length} stages)
+                          </span>
+                        </div>
+                        <p className="mt-1 text-body-xs text-ink-dim leading-relaxed">
+                          {mergeReport.repeatedStages.length > 0 ? (
+                            <>
+                              Repeated stages (
+                              <strong className="font-semibold text-primary">
+                                {mergeReport.repeatedStages.map((r) => r.name).join(', ')}
+                              </strong>
+                              ) merged into one; duplicate copies were removed.
+                            </>
+                          ) : (
+                            'Pipelines merged into a sequential creative workflow.'
+                          )}
+                        </p>
+                        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 font-mono text-label-micro">
+                          {mergeReport.stages.map((s, idx) => (
+                            <span key={s.name} className="flex items-center gap-1.5">
+                              {idx > 0 && <span className="text-ink-faint">→</span>}
+                              <span
+                                className={cx(
+                                  'rounded px-2 py-0.5 border',
+                                  s.isRepeated
+                                    ? 'border-primary/50 bg-primary/10 text-primary font-bold'
+                                    : 'border-line/60 bg-raised text-ink',
+                                )}
+                              >
+                                {s.name}
+                                {s.isRepeated && ' 🔁'}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-body-xs text-ink-faint">
+                        <strong className="font-semibold text-ink-dim">Active flow:</strong>{' '}
+                        {mergeReport.stages.map((s) => s.name).join(' → ')} · fully customizable anytime in Settings.
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div>

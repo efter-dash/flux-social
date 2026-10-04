@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Button,
   Card,
@@ -25,6 +25,7 @@ import { ContentFilterBar, applyContentFilters, useContentFilters } from '@/comp
 import { useStore } from '@/state/store'
 import { today } from '@/lib/date'
 import type { ContentItem, Stage } from '@/lib/types'
+import { PIPELINE_TEMPLATES } from '@/lib/templates'
 import {
   currentStage,
   daysInCurrentStage,
@@ -39,19 +40,40 @@ import {
 type Column = { id: string; label: string; tone: Tone; stage?: Stage; items: ContentItem[] }
 
 export function PipelinePage() {
+  const navigate = useNavigate()
   const { data, month, setMonth, canEdit, setStageState, updateContent, markPublished } = useStore()
   const { filters, set, reset, activeCount } = useContentFilters({ scope: 'open' })
   const [layout, setLayout] = useState<'board' | 'stuck'>('board')
   const [dragging, setDragging] = useState<string | null>(null)
+  const [pipelineFilter, setPipelineFilter] = useState<string>('all')
 
   if (!data) return null
   const { workspace, members, content } = data
   const stages = workspace.stages
 
-  const rows = useMemo(
-    () => applyContentFilters(content, filters, workspace, month),
-    [content, filters, workspace, month],
-  )
+  const activePipelines = useMemo(() => {
+    const ids = workspace.selectedPipelines && workspace.selectedPipelines.length > 0
+      ? workspace.selectedPipelines
+      : []
+    return ids
+      .map((id) => PIPELINE_TEMPLATES.find((t) => t.id === id))
+      .filter((t): t is (typeof PIPELINE_TEMPLATES)[number] => Boolean(t))
+  }, [workspace.selectedPipelines])
+
+  const rows = useMemo(() => {
+    let list = applyContentFilters(content, filters, workspace, month)
+    if (pipelineFilter !== 'all') {
+      const tpl = PIPELINE_TEMPLATES.find((t) => t.id === pipelineFilter)
+      list = list.filter((item) => {
+        if (item.pipelineId) return item.pipelineId === pipelineFilter
+        if (tpl?.contentTypes?.length) {
+          return tpl.contentTypes.includes(item.contentType)
+        }
+        return true
+      })
+    }
+    return list
+  }, [content, filters, workspace, month, pipelineFilter])
 
   const columns = useMemo<Column[]>(() => {
     const cols: Column[] = stages.map((stage, i) => ({
@@ -127,7 +149,11 @@ export function PipelinePage() {
     <div className="space-y-4">
       <SectionTitle
         title="Pipeline"
-        blurb="Where every piece of work sits, and who owns the next move."
+        blurb={
+          activePipelines.length > 1
+            ? `Unified workflow merging ${activePipelines.length} production pipelines (${stages.length} stages).`
+            : 'Where every piece of work sits, and who owns the next move.'
+        }
         action={
           <>
             <MonthNav month={month} onChange={setMonth} />
@@ -139,9 +165,63 @@ export function PipelinePage() {
               value={layout}
               onChange={setLayout}
             />
+            {canEdit && (
+              <Button variant="primary" icon="plus" onClick={() => navigate('/content?new=1')}>
+                <span className="hidden sm:inline">New content</span>
+              </Button>
+            )}
           </>
         }
       />
+
+      {activePipelines.length > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line/60 bg-sunken/40 px-3.5 py-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-body-xs font-bold text-ink flex items-center gap-1.5 shrink-0">
+              <span>🔀</span> Pipelines ({activePipelines.length} Merged):
+            </span>
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPipelineFilter('all')}
+                className={cx(
+                  'rounded px-2.5 py-1 text-body-xs font-medium transition-colors',
+                  pipelineFilter === 'all'
+                    ? 'bg-primary text-white font-semibold shadow-xs'
+                    : 'bg-raised/70 text-ink-dim hover:text-ink hover:bg-raised',
+                )}
+              >
+                All Pipelines (Merged · {stages.length} Stages)
+              </button>
+              {activePipelines.map((p) => {
+                const isActive = pipelineFilter === p.id
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPipelineFilter(p.id)}
+                    className={cx(
+                      'rounded px-2.5 py-1 text-body-xs font-medium transition-colors',
+                      isActive
+                        ? 'bg-primary text-white font-semibold shadow-xs'
+                        : 'bg-raised/70 text-ink-dim hover:text-ink hover:bg-raised',
+                    )}
+                  >
+                    {p.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <Link
+            to="/settings"
+            className="text-body-xs text-primary hover:underline font-medium inline-flex items-center gap-1 shrink-0"
+          >
+            <span>Manage Pipelines</span>
+            <Icon name="sliders" size={12} />
+          </Link>
+        </div>
+      )}
 
       <ContentFilterBar
         filters={filters}

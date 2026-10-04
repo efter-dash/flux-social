@@ -487,9 +487,9 @@ export function ProgressRing({
 
 export function Label({ children, hint }: { children: ReactNode; hint?: string }) {
   return (
-    <span className="mb-1.5 flex items-baseline justify-between gap-2">
-      <span className="label-caps font-bold text-ink">{children}</span>
-      {hint && <span className="text-label-micro text-ink-faint">{hint}</span>}
+    <span className="mb-1.5 flex min-h-[1.375rem] items-center justify-between gap-2">
+      <span className="label-caps font-bold text-ink truncate">{children}</span>
+      {hint && <span className="text-label-micro text-ink-faint shrink-0">{hint}</span>}
     </span>
   )
 }
@@ -506,9 +506,9 @@ export function Field({
   className?: string
 }) {
   return (
-    <label className={cx('block', className)}>
+    <label className={cx('flex flex-col justify-start min-w-0', className)}>
       {label && <Label hint={hint}>{label}</Label>}
-      {children}
+      <div className="w-full flex-1 flex flex-col justify-end">{children}</div>
     </label>
   )
 }
@@ -517,7 +517,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   { className, ...rest },
   ref,
 ) {
-  return <input ref={ref} className={cx('field', className)} {...rest} />
+  return <input ref={ref} className={cx('field h-10', className)} {...rest} />
 })
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
@@ -536,8 +536,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   ref,
 ) {
   return (
-    <span className="relative block">
-      <select ref={ref} className={cx('field field-select', className)} {...rest}>
+    <span className="relative block w-full">
+      <select ref={ref} className={cx('field field-select h-10', className)} {...rest}>
         {placeholder !== undefined && <option value="">{placeholder}</option>}
         {children}
       </select>

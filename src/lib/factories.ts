@@ -19,7 +19,8 @@ import type {
   AccessLevel,
 } from './types'
 import { EMPTY_METRICS } from './types'
-import { DEFAULT_TAXONOMIES, PIPELINE_TEMPLATES } from './templates'
+import { DEFAULT_TAXONOMIES } from './templates'
+import { mergePipelines, type PipelineMergeReport } from './pipelineMerge'
 import { monthKey, today } from './date'
 
 /** Collision-resistant enough for client-generated document ids. */
@@ -48,19 +49,45 @@ export function initialsFromName(name: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase()
 }
 
-export function stagesFromTemplate(templateId: string): Stage[] {
-  const tpl = PIPELINE_TEMPLATES.find((t) => t.id === templateId) ?? PIPELINE_TEMPLATES[0]
-  return tpl.stages.map((s) => ({ ...s, id: uid('st_') }))
+export function stagesFromPipelines(pipelineIds: string | string[]): { stages: Stage[]; report: PipelineMergeReport } {
+  const ids = Array.isArray(pipelineIds) ? pipelineIds : [pipelineIds]
+  const report = mergePipelines(ids)
+  const stages: Stage[] = report.stages.map((s) => ({
+    id: uid('st_'),
+    name: s.name,
+    ownerRole: s.ownerRole,
+    verb: s.verb,
+    pipelineId: s.sourcePipelineIds[0],
+  }))
+  return { stages, report }
+}
+
+export function stagesFromTemplate(templateId: string | string[]): Stage[] {
+  return stagesFromPipelines(templateId).stages
 }
 
 export function newWorkspace(opts: {
   name: string
-  templateId: string
+  templateId?: string
+  templateIds?: string[]
   createdBy: string
   contentPrefix?: string
   weekStartsOn?: 0 | 1
   taxonomies?: Taxonomies
 }): Workspace {
+  const selectedPipelines = opts.templateIds && opts.templateIds.length > 0
+    ? opts.templateIds
+    : [opts.templateId || 'video']
+
+  const { stages, report } = stagesFromPipelines(selectedPipelines)
+  const baseTax = opts.taxonomies ?? structuredClone(DEFAULT_TAXONOMIES)
+
+  // Merge content types and roles from selected pipelines
+  if (report.contentTypes.length > 0) {
+    const combined = Array.from(new Set([...report.contentTypes, ...baseTax.contentTypes]))
+    baseTax.contentTypes = combined
+  }
+
   return {
     id: uid('ws_'),
     name: opts.name.trim() || 'Untitled workspace',
@@ -73,8 +100,9 @@ export function newWorkspace(opts: {
     joinEnabled: true,
     joinAccess: 'member',
     weekStartsOn: opts.weekStartsOn ?? 1,
-    stages: stagesFromTemplate(opts.templateId),
-    taxonomies: opts.taxonomies ?? structuredClone(DEFAULT_TAXONOMIES),
+    stages,
+    taxonomies: baseTax,
+    selectedPipelines,
     createdAt: new Date().toISOString(),
     createdBy: opts.createdBy,
   }
@@ -134,6 +162,13 @@ export function newContentItem(opts: {
   }
   const nowISO = new Date().toISOString()
   const planned = opts.plannedPublishDate ?? ''
+  const videoType =
+    opts.taxonomies.contentTypes.find((t) =>
+      ['Video Graphic', 'Reel', 'Short Video', 'Video'].includes(t),
+    ) ||
+    opts.taxonomies.contentTypes[0] ||
+    'Video Graphic'
+
   return {
     id: uid('cn_'),
     workspaceId: opts.workspaceId,
@@ -141,13 +176,22 @@ export function newContentItem(opts: {
     month: opts.month ?? (planned ? monthKey(planned) : monthKey(today())),
     title: '',
     topic: '',
-    contentType: opts.taxonomies.contentTypes[0] ?? '',
-    category: opts.taxonomies.categories[0] ?? '',
+    contentType: videoType,
+    category:
+      opts.taxonomies.categories.find((c) => !c.toLowerCase().includes('thumbnail')) ??
+      opts.taxonomies.categories[0] ??
+      'Product',
     platform: opts.taxonomies.platforms[0]?.label ?? '',
     crossPost: [],
     objective: '',
     audience: '',
     ownerId: opts.ownerId,
+    productionFormat: 'video',
+    productionMeta: {
+      shootStyle: 'Studio set & lighting',
+      aspectRatio: '9:16 (Vertical Reel/TikTok)',
+      duration: '30s–60s',
+    },
     stageAssignees,
     stageDeadlines,
     stageStates,
@@ -213,7 +257,10 @@ export function newIdea(opts: {
     topic: '',
     description: '',
     contentType: opts.taxonomies.contentTypes[0] ?? '',
-    category: opts.taxonomies.categories[0] ?? '',
+    category:
+      opts.taxonomies.categories.find((c) => !c.toLowerCase().includes('thumbnail')) ??
+      opts.taxonomies.categories[0] ??
+      'Product',
     platform: opts.taxonomies.platforms[0]?.label ?? '',
     audience: '',
     objective: '',

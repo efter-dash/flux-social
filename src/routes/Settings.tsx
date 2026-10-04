@@ -223,8 +223,12 @@ function WorkspaceTab() {
 // ---------------------------------------------------------------------------
 
 function PipelineTab() {
-  const { data, canManage, setStages, notify } = useStore()
+  const { data, canManage, setStages, mergeAndApplyPipelines, getMergedPipelinePreview, notify } = useStore()
   const [stages, setLocal] = useState<Stage[]>(data?.workspace.stages ?? [])
+  const [selectedPipelines, setSelectedPipelines] = useState<string[]>(
+    data?.workspace.selectedPipelines?.length ? data.workspace.selectedPipelines : ['video'],
+  )
+  const [syncTaxonomies, setSyncTaxonomies] = useState(true)
   const [saving, setSaving] = useState(false)
   const confirm = useConfirm()
   if (!data) return null
@@ -232,6 +236,49 @@ function PipelineTab() {
   const { workspace, content } = data
   const roles = workspace.taxonomies.roles.map((r) => r.label)
   const dirty = JSON.stringify(stages) !== JSON.stringify(workspace.stages)
+  const mergeReport = useMemo(() => getMergedPipelinePreview(selectedPipelines), [getMergedPipelinePreview, selectedPipelines])
+
+  const togglePipeline = (id: string) => {
+    if (selectedPipelines.includes(id)) {
+      if (selectedPipelines.length === 1) {
+        notify('Keep at least one pipeline selected', 'danger')
+        return
+      }
+      setSelectedPipelines(selectedPipelines.filter((p) => p !== id))
+    } else {
+      setSelectedPipelines([...selectedPipelines, id])
+    }
+  }
+
+  const applyMerged = () => {
+    const isMultiple = selectedPipelines.length > 1
+    const pNames = selectedPipelines
+      .map((id) => PIPELINE_TEMPLATES.find((t) => t.id === id)?.name || id)
+      .join(' + ')
+    const stageNames = mergeReport.stages.map((s) => s.name).join(' → ')
+    const repeatsText = mergeReport.repeatedStages.length
+      ? ` Repeating stages (${mergeReport.repeatedStages.map((r) => r.name).join(', ')}) will merge into 1 and duplicate features are removed.`
+      : ''
+
+    confirm.ask({
+      title: isMultiple ? `Apply Merged Pipeline (${pNames})?` : `Apply “${pNames}” Pipeline?`,
+      body: `The workspace pipeline will become ${mergeReport.stages.length} stages: ${stageNames}.${repeatsText} Existing content retains progress on stages that carry over.`,
+      confirmLabel: isMultiple ? 'Apply merged pipeline' : 'Apply pipeline',
+      danger: true,
+      onConfirm: async () => {
+        const report = await mergeAndApplyPipelines(selectedPipelines, { syncTaxonomies })
+        setLocal(
+          report.stages.map((s) => ({
+            id: s.id || uid('st_'),
+            name: s.name,
+            ownerRole: s.ownerRole,
+            verb: s.verb,
+            pipelineId: s.sourcePipelineIds[0],
+          })),
+        )
+      },
+    })
+  }
 
   const move = (index: number, dir: -1 | 1) => {
     const next = [...stages]
@@ -247,7 +294,7 @@ function PipelineTab() {
   const save = async () => {
     setSaving(true)
     try {
-      await setStages(stages)
+      await setStages(stages, selectedPipelines)
       notify('Pipeline updated', 'success')
     } finally {
       setSaving(false)
@@ -377,29 +424,216 @@ function PipelineTab() {
 
       {canManage && (
         <Card>
-          <CardHeader label="Templates" title="Start from a preset" />
-          <div className="grid gap-2 p-widget sm:grid-cols-2 lg:grid-cols-3">
-            {PIPELINE_TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() =>
-                  confirm.ask({
-                    title: `Replace the pipeline with “${t.name}”?`,
-                    body: `The pipeline becomes ${t.stages.map((s) => s.name).join(' → ')}. Progress on stages that do not carry over is lost.`,
-                    confirmLabel: 'Replace pipeline',
-                    danger: true,
-                    onConfirm: () => setLocal(t.stages.map((s) => ({ ...s, id: uid('st_') }))),
-                  })
-                }
-                className="rounded-md border border-line/50 bg-sunken/40 p-3 text-left transition-colors hover:border-line"
+          <CardHeader
+            label="Production Pipelines & Multi-Selection"
+            title="Configure and merge production pipelines"
+            action={
+              <Button
+                size="sm"
+                variant="primary"
+                icon="sparkle"
+                onClick={applyMerged}
               >
-                <span className="block text-body-sm font-medium text-ink">{t.name}</span>
-                <span className="mt-1 block text-body-xs text-ink-dim">{t.blurb}</span>
-                <span className="mt-2 block font-mono text-label-micro uppercase text-ink-faint">
-                  {t.stages.map((s) => s.name).join(' → ')}
+                {selectedPipelines.length > 1
+                  ? `Apply Merged (${mergeReport.stages.length} Stages)`
+                  : `Apply (${mergeReport.stages.length} Stages)`}
+              </Button>
+            }
+          />
+          <div className="space-y-4 p-widget">
+            <p className="text-body-xs text-ink-dim leading-relaxed">
+              Agencies and multi-format creators can select <strong>multiple production pipelines</strong> (e.g. Video Production + Design &amp; Graphics). When more than one pipeline is selected, features merge into one unified workflow: stages that repeat across pipelines (such as <strong>Review</strong> or <strong>Brief</strong>) merge into a single shared stage, and duplicate/redundant stages are removed.
+            </p>
+
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {PIPELINE_TEMPLATES.map((t) => {
+                const isSelected = selectedPipelines.includes(t.id)
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => togglePipeline(t.id)}
+                    className={cx(
+                      'relative rounded-lg border p-3.5 text-left transition-all',
+                      isSelected
+                        ? 'border-primary/70 bg-accent/15 ring-1 ring-primary/40 shadow-sm'
+                        : 'border-line/50 bg-sunken/40 hover:border-line hover:bg-sunken/70',
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="block text-body-sm font-bold text-ink">{t.name}</span>
+                        <span className="mt-1 block text-body-xs text-ink-dim leading-relaxed">{t.blurb}</span>
+                      </div>
+                      <span
+                        className={cx(
+                          'flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors',
+                          isSelected
+                            ? 'border-primary bg-primary text-white'
+                            : 'border-line/80 bg-raised/80 text-transparent',
+                        )}
+                      >
+                        <Icon name="check" size={13} />
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-1 font-mono text-label-micro text-ink-faint">
+                      {t.stages.map((s, idx) => (
+                        <span key={s.name} className="flex items-center gap-1">
+                          {idx > 0 && <span className="opacity-40">→</span>}
+                          <span>{s.name}</span>
+                        </span>
+                      ))}
+                    </div>
+
+                    {t.contentTypes && (
+                      <div className="mt-2 text-label-micro text-ink-faint">
+                        Formats: {t.contentTypes.join(', ')}
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Merge Analysis & Flow Diagnostics */}
+            <div className="rounded-lg border border-line/70 bg-sunken/50 p-4 space-y-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/40 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/25 text-primary text-body-xs font-bold">
+                    {selectedPipelines.length > 1 ? '🔀' : '⚡'}
+                  </span>
+                  <div>
+                    <h4 className="text-body-sm font-bold text-ink">
+                      {selectedPipelines.length > 1
+                        ? `Merged Pipeline Analysis: ${selectedPipelines.length} Pipelines Combined`
+                        : `Selected Pipeline: ${mergeReport.selectedPipelines[0]?.name}`}
+                    </h4>
+                    <span className="text-body-xs text-ink-dim">
+                      Resulting workflow contains {mergeReport.stages.length} stages in production order
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-body-xs text-ink-dim cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={syncTaxonomies}
+                      onChange={(e) => setSyncTaxonomies(e.target.checked)}
+                      className="rounded border-line text-primary focus:ring-accent"
+                    />
+                    <span>Sync content formats &amp; roles</span>
+                  </label>
+                </div>
+              </div>
+
+              {selectedPipelines.length > 1 && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-md border border-line/50 bg-raised/60 p-3">
+                    <span className="block text-body-xs font-bold text-ink mb-1.5 flex items-center gap-1.5">
+                      <span className="text-primary font-bold">🔁</span> Merged Repeating Features ({mergeReport.repeatedStages.length})
+                    </span>
+                    {mergeReport.repeatedStages.length > 0 ? (
+                      <ul className="space-y-1 text-body-xs text-ink-dim">
+                        {mergeReport.repeatedStages.map((r) => (
+                          <li key={r.name} className="flex items-start gap-1.5">
+                            <Icon name="check" size={12} className="text-primary mt-1 shrink-0" />
+                            <span>
+                              <strong className="text-ink font-semibold">{r.name}</strong>: Repeated in {r.sources.join(' & ')} · merged into 1 shared stage.
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-body-xs text-ink-faint">No overlapping stage names between these pipelines.</p>
+                    )}
+
+                    {mergeReport.removedDuplicates.length > 0 && (
+                      <div className="mt-2.5 pt-2 border-t border-line/40">
+                        <span className="block text-label-micro font-bold text-ink-dim uppercase mb-1">
+                          Duplicate instances removed:
+                        </span>
+                        <div className="flex flex-wrap gap-1 text-body-xs text-ink-faint">
+                          {mergeReport.removedDuplicates.map((d, i) => (
+                            <span key={i} className="line-through decoration-danger/60">
+                              {d.name} ({d.fromPipeline})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-md border border-line/50 bg-raised/60 p-3">
+                    <span className="block text-body-xs font-bold text-ink mb-1.5 flex items-center gap-1.5">
+                      <span className="text-emerald-500 font-bold">✨</span> Specialized Features Contributed ({mergeReport.uniqueStages.length})
+                    </span>
+                    <ul className="space-y-1 text-body-xs text-ink-dim">
+                      {mergeReport.uniqueStages.map((u) => (
+                        <li key={u.name} className="flex items-start gap-1.5">
+                          <span className="text-ink-faint mt-0.5">•</span>
+                          <span>
+                            <strong className="text-ink font-medium">{u.name}</strong>: from {u.fromPipeline}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Visual resulting stage track */}
+              <div>
+                <span className="block text-label-micro font-bold text-ink-dim uppercase mb-2">
+                  Unified Stage Sequence:
                 </span>
-              </button>
-            ))}
+                <div className="flex flex-wrap items-center gap-1.5 font-mono text-label-micro">
+                  {mergeReport.stages.map((s, idx) => (
+                    <span key={s.name} className="flex items-center gap-1.5">
+                      {idx > 0 && <span className="text-ink-faint">→</span>}
+                      <span
+                        className={cx(
+                          'rounded px-2.5 py-1 border text-body-xs',
+                          s.isRepeated
+                            ? 'border-primary/60 bg-accent/20 text-primary font-bold shadow-xs'
+                            : 'border-line/70 bg-raised text-ink',
+                        )}
+                        title={
+                          s.isRepeated
+                            ? `Merged from: ${s.sourcePipelineNames.join(', ')}`
+                            : `From: ${s.sourcePipelineNames.join(', ')}`
+                        }
+                      >
+                        {s.name}
+                        {s.isRepeated && (
+                          <span className="ml-1 text-label-micro opacity-80" title="Consolidated repeating feature">
+                            🔁
+                          </span>
+                        )}
+                        <span className="ml-1.5 font-sans text-label-micro text-ink-dim opacity-70">
+                          ({s.ownerRole})
+                        </span>
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between gap-3">
+                <span className="text-body-xs text-ink-faint">
+                  Clicking "Apply" replaces the stages above with this merged sequence while safeguarding existing content progress.
+                </span>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon="sparkle"
+                  onClick={applyMerged}
+                >
+                  {selectedPipelines.length > 1 ? 'Apply Merged Pipeline' : 'Apply Pipeline'}
+                </Button>
+              </div>
+            </div>
           </div>
         </Card>
       )}

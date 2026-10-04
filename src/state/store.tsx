@@ -48,6 +48,16 @@ import {
 } from '@/lib/factories'
 import { buildSampleWorkspace } from '@/lib/sample'
 import { currentMonthKey, today } from '@/lib/date'
+import {
+  mergePipelineConfigurations,
+  mergePipelines,
+  type PipelineConfigInput,
+  type PipelineMergeReport,
+  type MergedStageResult,
+} from '@/lib/pipelineMerge'
+
+export { mergePipelineConfigurations, mergePipelines }
+export type { PipelineConfigInput, PipelineMergeReport, MergedStageResult }
 import { suggestAssignee } from '@/lib/derive'
 
 const ACTIVE_WS_KEY = 'flux.activeWorkspace'
@@ -99,7 +109,14 @@ interface StoreValue {
   signOut: () => Promise<void>
 
   // Workspaces
-  createWorkspace: (opts: { name: string; templateId: string; contentPrefix?: string; weekStartsOn?: 0 | 1; withSample?: boolean }) => Promise<string>
+  createWorkspace: (opts: {
+    name: string
+    templateId?: string
+    templateIds?: string[]
+    contentPrefix?: string
+    weekStartsOn?: 0 | 1
+    withSample?: boolean
+  }) => Promise<string>
   openWorkspace: (id: string) => Promise<void>
   joinByCode: (code: string, displayName?: string) => Promise<string>
   leaveWorkspace: (id: string) => Promise<void>
@@ -107,7 +124,12 @@ interface StoreValue {
   updateWorkspace: (patch: Partial<Workspace>) => Promise<void>
   regenerateJoinCode: () => Promise<void>
   updateTaxonomies: (patch: Partial<Taxonomies>) => Promise<void>
-  setStages: (stages: Stage[]) => Promise<void>
+  setStages: (stages: Stage[], selectedPipelines?: string[]) => Promise<void>
+  mergeAndApplyPipelines: (
+    configs: PipelineConfigInput[],
+    options?: { syncTaxonomies?: boolean },
+  ) => Promise<PipelineMergeReport>
+  getMergedPipelinePreview: (configs: PipelineConfigInput[]) => PipelineMergeReport
   loadSampleData: () => Promise<void>
 
   // Members
@@ -254,7 +276,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const repo = repoRef.current
     const wsId = data?.workspace.id
     if (!repo || !wsId) return
-    return repo.subscribe(wsId, (fresh) => setData(fresh))
+    return repo.subscribe(wsId, (fresh) => {
+      if (fresh?.workspace?.taxonomies?.categories) {
+        fresh.workspace.taxonomies.categories = fresh.workspace.taxonomies.categories.filter(
+          (c) => !c.toLowerCase().includes('thumbnail'),
+        )
+      }
+      setData(fresh)
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.workspace.id])
 
@@ -265,6 +294,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const fresh = await repo.loadWorkspace(id)
       if (fresh) {
+        if (fresh.workspace?.taxonomies?.categories) {
+          fresh.workspace.taxonomies.categories = fresh.workspace.taxonomies.categories.filter(
+            (c) => !c.toLowerCase().includes('thumbnail'),
+          )
+        }
         setData(fresh)
         localStorage.setItem(ACTIVE_WS_KEY, id)
       } else {
@@ -356,6 +390,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const workspace = newWorkspace({
         name: opts.name,
         templateId: opts.templateId,
+        templateIds: opts.templateIds,
         createdBy: user.uid,
         contentPrefix: opts.contentPrefix,
         weekStartsOn: opts.weekStartsOn,
@@ -493,7 +528,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const setStages = useCallback<StoreValue['setStages']>(
-    async (stages) => {
+    async (stages, selectedPipelines) => {
       if (!data) return
       if (!guard(canManage, 'change the pipeline')) return
       // Existing items must keep valid maps: seed new stages, drop removed ones.
@@ -516,13 +551,114 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { ...item, stageStates, stageAssignees, stageDeadlines, stageEnteredAt, updatedAt: new Date().toISOString() }
       })
 
-      const nextWorkspace = { ...data.workspace, stages }
+      const nextWorkspace = {
+        ...data.workspace,
+        stages,
+        ...(selectedPipelines ? { selectedPipelines } : {}),
+      }
       patchLocal((d) => ({ ...d, workspace: nextWorkspace, content: updated }))
       await repo().saveWorkspace(nextWorkspace)
       const touched = updated.filter((u, i) => u !== data.content[i])
       if (touched.length) await repo().putMany('content', touched)
     },
     [data, canManage, guard, patchLocal],
+  )
+
+  const getMergedPipelinePreview = useCallback<StoreValue['getMergedPipelinePreview']>(
+    (configs) => {
+      return mergePipelineConfigurations(configs, data?.workspace.stages)
+    },
+    [data?.workspace.stages],
+  )
+
+  const mergeAndApplyPipelines = useCallback<StoreValue['mergeAndApplyPipelines']>(
+    async (configs, options) => {
+      if (!data) throw new Error('No active workspace')
+      if (!guard(canManage, 'merge and configure pipelines')) {
+        throw new Error('Permission denied')
+      }
+
+      const syncTax = options?.syncTaxonomies ?? true
+      const report = mergePipelineConfigurations(configs, data.workspace.stages)
+
+      // Convert merged stages into concrete Stage items with preserved or generated IDs
+      const newStages: Stage[] = report.stages.map((s) => ({
+        id: s.id || uid('st_'),
+        name: s.name,
+        ownerRole: s.ownerRole,
+        verb: s.verb,
+        pipelineId: s.sourcePipelineIds[0],
+      }))
+
+      // Deep merge taxonomies if requested
+      let updatedTaxonomies = data.workspace.taxonomies
+      if (syncTax) {
+        const mergedContentTypes = Array.from(
+          new Set([...report.contentTypes, ...data.workspace.taxonomies.contentTypes]),
+        )
+        const mergedTaskTypes = Array.from(
+          new Set([...report.taskTypes, ...data.workspace.taxonomies.taskTypes]),
+        )
+        const existingRoleLabels = new Set(
+          data.workspace.taxonomies.roles.map((r) => r.label.toLowerCase()),
+        )
+        const additionalRoles = report.roles
+          .filter((r) => !existingRoleLabels.has(r.toLowerCase()))
+          .map((r) => ({ id: uid('role_'), label: r }))
+        const mergedRoles = [...data.workspace.taxonomies.roles, ...additionalRoles]
+
+        updatedTaxonomies = {
+          ...data.workspace.taxonomies,
+          contentTypes: mergedContentTypes,
+          taskTypes: mergedTaskTypes,
+          roles: mergedRoles,
+        }
+      }
+
+      const selectedPipelineIds = report.selectedPipelineIds
+
+      // Existing items must keep valid maps: preserve matching stages, seed new ones, drop removed ones
+      const updatedContent = data.content.map((item) => {
+        const stageStates: Record<string, StageState> = {}
+        const stageAssignees: Record<string, string> = {}
+        const stageDeadlines: Record<string, string> = {}
+        const stageEnteredAt: Record<string, string> = {}
+        for (const s of newStages) {
+          stageStates[s.id] = item.stageStates?.[s.id] ?? 'pending'
+          stageAssignees[s.id] = item.stageAssignees?.[s.id] ?? ''
+          stageDeadlines[s.id] = item.stageDeadlines?.[s.id] ?? ''
+          if (item.stageEnteredAt?.[s.id]) stageEnteredAt[s.id] = item.stageEnteredAt[s.id]
+        }
+        return {
+          ...item,
+          stageStates,
+          stageAssignees,
+          stageDeadlines,
+          stageEnteredAt,
+          updatedAt: new Date().toISOString(),
+        }
+      })
+
+      const nextWorkspace: Workspace = {
+        ...data.workspace,
+        stages: newStages,
+        selectedPipelines: selectedPipelineIds,
+        taxonomies: updatedTaxonomies,
+      }
+
+      patchLocal((d) => ({ ...d, workspace: nextWorkspace, content: updatedContent }))
+      await repo().saveWorkspace(nextWorkspace)
+      const touched = updatedContent.filter((u, i) => u !== data.content[i])
+      if (touched.length) await repo().putMany('content', touched)
+
+      const pCount = selectedPipelineIds.length
+      notify(
+        `Merged ${pCount} pipeline${pCount === 1 ? '' : 's'} into unified ${newStages.length}-stage workflow`,
+        'success',
+      )
+      return report
+    },
+    [data, canManage, guard, patchLocal, notify],
   )
 
   const loadSampleData = useCallback(async () => {
@@ -1008,6 +1144,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     regenerateJoinCode,
     updateTaxonomies,
     setStages,
+    mergeAndApplyPipelines,
+    getMergedPipelinePreview,
     loadSampleData,
     addMember,
     updateMember,

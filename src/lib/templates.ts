@@ -32,17 +32,25 @@ export const DEFAULT_PLATFORMS: PlatformDef[] = [
 
 export const DEFAULT_TAXONOMIES: Taxonomies = {
   contentTypes: [
-    'Reel',
-    'Short Video',
-    'Long Video',
+    'Thumbnails',
     'Carousel',
-    'Static Post',
-    'Story',
-    'Live',
-    'Testimonial',
+    'Graphic Post',
+    'Banner / Header',
+    'Infographic',
+    'Story / Vertical Graphic',
+    'Reels & Shorts (9:16)',
+    'Long-Form Video (16:9)',
+    'Video Graphics & Motion Promo',
+    'Interview & Podcast Video',
     'Blog Post',
     'Newsletter',
-    'Podcast',
+    'Social Thread',
+    'Case Study & Article',
+    'Campaign Brief',
+    'Client Deliverable & Scope',
+    'Creative Concept & Pitch',
+    'Static Post',
+    'Story',
   ],
   categories: [
     'Product',
@@ -97,6 +105,10 @@ export interface PipelineTemplate {
   id: string
   name: string
   blurb: string
+  color?: string
+  contentTypes?: string[]
+  taskTypes?: string[]
+  roles?: string[]
   stages: Omit<Stage, 'id'>[]
 }
 
@@ -105,6 +117,10 @@ export const PIPELINE_TEMPLATES: PipelineTemplate[] = [
     id: 'video',
     name: 'Video production',
     blurb: 'Script, shoot, edit, review — for teams whose main output is video.',
+    color: '#ff3d3d',
+    contentTypes: ['Reel', 'Short Video', 'Long Video'],
+    taskTypes: ['Script Writing', 'Script Revision', 'Shooting', 'Video Editing', 'Video Revision', 'Thumbnail'],
+    roles: ['Content Writer', 'Videographer', 'Video Editor', 'Team Lead'],
     stages: [
       { name: 'Script', ownerRole: 'Content Writer', verb: 'Write' },
       { name: 'Shoot', ownerRole: 'Videographer', verb: 'Shoot' },
@@ -115,7 +131,11 @@ export const PIPELINE_TEMPLATES: PipelineTemplate[] = [
   {
     id: 'design',
     name: 'Design & graphics',
-    blurb: 'Brief, copy, design, review — for carousels, static posts and stories.',
+    blurb: 'Brief, copy, design, review — for thumbnails, carousels, static posts and stories.',
+    color: '#3b9ae1',
+    contentTypes: ['Thumbnails', 'Carousel', 'Static Post', 'Story'],
+    taskTypes: ['Content Planning', 'Copywriting', 'Design', 'Thumbnail Design', 'Asset Export'],
+    roles: ['Team Lead', 'Content Writer', 'Designer'],
     stages: [
       { name: 'Brief', ownerRole: 'Team Lead', verb: 'Brief' },
       { name: 'Copy', ownerRole: 'Content Writer', verb: 'Write' },
@@ -127,6 +147,10 @@ export const PIPELINE_TEMPLATES: PipelineTemplate[] = [
     id: 'written',
     name: 'Written content',
     blurb: 'Outline, draft, edit, review — for blogs, newsletters and threads.',
+    color: '#ffc46b',
+    contentTypes: ['Blog Post', 'Newsletter', 'Thread'],
+    taskTypes: ['Research', 'Content Planning', 'Drafting', 'Proofreading'],
+    roles: ['Content Writer', 'Team Lead'],
     stages: [
       { name: 'Outline', ownerRole: 'Content Writer', verb: 'Outline' },
       { name: 'Draft', ownerRole: 'Content Writer', verb: 'Draft' },
@@ -138,6 +162,10 @@ export const PIPELINE_TEMPLATES: PipelineTemplate[] = [
     id: 'agency',
     name: 'Agency / client work',
     blurb: 'Adds a client approval gate before anything gets scheduled.',
+    color: '#a78bfa',
+    contentTypes: ['Campaign Asset', 'Client Deliverable', 'Sponsored Post'],
+    taskTypes: ['Client Brief', 'Production', 'Internal QA', 'Client Approval'],
+    roles: ['Team Lead', 'Designer', 'Social Manager'],
     stages: [
       { name: 'Brief', ownerRole: 'Team Lead', verb: 'Brief' },
       { name: 'Production', ownerRole: 'Designer', verb: 'Produce' },
@@ -149,6 +177,10 @@ export const PIPELINE_TEMPLATES: PipelineTemplate[] = [
     id: 'simple',
     name: 'Simple two-step',
     blurb: 'Create, then review. The lightest pipeline that still tracks a handoff.',
+    color: '#4edea3',
+    contentTypes: ['Social Post', 'Quick Update'],
+    taskTypes: ['Creation', 'Review'],
+    roles: ['Content Writer', 'Team Lead'],
     stages: [
       { name: 'Create', ownerRole: 'Content Writer', verb: 'Create' },
       { name: 'Review', ownerRole: 'Team Lead', verb: 'Review' },

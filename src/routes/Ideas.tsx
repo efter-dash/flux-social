@@ -362,7 +362,12 @@ function IdeaSheet({ open, onClose, idea }: { open: boolean; onClose: () => void
             <OptionSelect value={draft.contentType} onChange={(v) => set('contentType', v)} options={taxonomies.contentTypes} placeholder="—" />
           </Field>
           <Field label="Category">
-            <OptionSelect value={draft.category} onChange={(v) => set('category', v)} options={taxonomies.categories} placeholder="—" />
+            <OptionSelect
+              value={draft.category && !draft.category.toLowerCase().includes('thumbnail') ? draft.category : ''}
+              onChange={(v) => set('category', v)}
+              options={taxonomies.categories.filter((c) => !c.toLowerCase().includes('thumbnail'))}
+              placeholder="—"
+            />
           </Field>
           <Field label="Platform">
             <OptionSelect

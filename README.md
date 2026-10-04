@@ -16,7 +16,7 @@ Runs entirely offline in your browser with local IndexedDB storage, or syncs acr
 
 ## Key Features
 
-- **Production Pipeline**: Stage-by-stage Kanban board with cycle time alerts, stalled item detection, and custom stage templates (Video, Design, Copywriting, Agency).
+- **Multi-Pipeline & Merged Production**: Select multiple production pipelines (e.g. Video + Design for agencies). Repeating stages (such as Review or Brief) merge into one unified step, while duplicate features are removed automatically. Includes stage-by-stage Kanban board with cycle time alerts and stalled item detection.
 - **Monthly Content Calendar**: Visual schedule grid with cross-platform indicators, date filtering, and unscheduled staging area.
 - **Daily Task Tracker**: Role-based assignment, priority flags, and automatic overdue calculation.
 - **Content Idea Bank**: Funnel ideas from concept to approval, with 1-click promotion directly into the active production pipeline.

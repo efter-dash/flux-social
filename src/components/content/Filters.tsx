@@ -174,7 +174,7 @@ export function ContentFilterBar({
             <OptionSelect
               value={filters.category}
               onChange={(v) => set('category', v)}
-              options={taxonomies.categories}
+              options={taxonomies.categories.filter((c) => !c.toLowerCase().includes('thumbnail'))}
               placeholder="Any category"
             />
           </LabeledFilter>
