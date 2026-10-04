@@ -6,6 +6,14 @@ Runs entirely offline in your browser with local IndexedDB storage, or syncs acr
 
 ---
 
+## 📺 Product Overview & Demo
+
+[![Watch the FLUX Trailer](https://img.youtube.com/vi/0XSkavVru00/maxresdefault.jpg)](https://youtu.be/0XSkavVru00)
+
+> ▶️ **[Click to Watch the FLUX Trailer on YouTube](https://youtu.be/0XSkavVru00)** — A complete walkthrough of the pipeline board, monthly calendar, task tracker, and local Ollama AI reports.
+
+---
+
 ## Key Features
 
 - **Production Pipeline**: Stage-by-stage Kanban board with cycle time alerts, stalled item detection, and custom stage templates (Video, Design, Copywriting, Agency).
