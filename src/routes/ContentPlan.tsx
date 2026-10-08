@@ -111,8 +111,13 @@ export function ContentPlanPage() {
               />
             </span>
             {canEdit && (
-              <Button variant="primary" icon="plus" onClick={() => void newItem()}>
-                <span className="hidden sm:inline">New</span>
+              <Button
+                variant="primary"
+                icon="plus"
+                onClick={() => void newItem()}
+                className="h-[42px] px-5 sm:px-6 text-body-sm font-semibold rounded-lg shadow-sm"
+              >
+                <span>New</span>
               </Button>
             )}
           </>

@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
+import { useStore } from '@/state/store'
 import { Sheet } from '@/components/ui/Overlay'
 import {
   Button,
@@ -46,6 +47,7 @@ import {
   suggestAssignee,
 } from '@/lib/derive'
 import { addDays, monthKey, today } from '@/lib/date'
+import { copyContentToClipboard } from '@/lib/contentExport'
 
 export function ContentSheet({
   open,
@@ -68,8 +70,10 @@ export function ContentSheet({
   canDelete?: boolean
   readOnly?: boolean
 }) {
+  const { notify } = useStore()
   const [draft, setDraft] = useState<ContentItem>(item)
   const [saving, setSaving] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   // Re-seed when a different item is opened.
   useEffect(() => setDraft(item), [item.id, open]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -79,25 +83,48 @@ export function ContentSheet({
   const set = <K extends keyof ContentItem>(key: K, value: ContentItem[K]) =>
     setDraft((d) => ({ ...d, [key]: value }))
 
+  // Filter formats based on workspace workflow preferences
+  const enabledFormats = useMemo(() => {
+    return workspace.enabledFormats && workspace.enabledFormats.length > 0
+      ? workspace.enabledFormats
+      : (['static', 'video', 'written', 'brief'] as ProductionFormat[])
+  }, [workspace.enabledFormats])
+
+  const visibleFormats = useMemo(() => {
+    return PRODUCTION_FORMATS.filter((f) => enabledFormats.includes(f.id))
+  }, [enabledFormats])
+
   const currentFormat = useMemo(() => {
-    return draft.productionFormat || detectProductionFormat(draft, 'video')
-  }, [draft.productionFormat, draft.contentType, draft.pipelineId])
+    const raw = draft.productionFormat || detectProductionFormat(draft, enabledFormats[0] || 'video')
+    return enabledFormats.includes(raw) ? raw : (enabledFormats[0] || 'video')
+  }, [draft.productionFormat, draft.contentType, draft.pipelineId, enabledFormats])
 
   const formatDef = useMemo(() => {
-    return PRODUCTION_FORMATS.find((f) => f.id === currentFormat) || PRODUCTION_FORMATS[0]
-  }, [currentFormat])
+    return PRODUCTION_FORMATS.find((f) => f.id === currentFormat) || visibleFormats[0] || PRODUCTION_FORMATS[0]
+  }, [currentFormat, visibleFormats])
+
+  // Filter subcategories based on workspace workflow preferences
+  const visibleSubCategories = useMemo(() => {
+    if (!workspace.enabledSubCategories || workspace.enabledSubCategories.length === 0) {
+      return formatDef.subCategories
+    }
+    const filtered = formatDef.subCategories.filter((sc) =>
+      workspace.enabledSubCategories!.includes(sc),
+    )
+    return filtered.length > 0 ? filtered : formatDef.subCategories
+  }, [formatDef, workspace.enabledSubCategories])
 
   const currentSubCategory = useMemo(() => {
     let sub = draft.productionMeta?.subCategory
     if (sub === 'Thumbnails (YT, IG, FB)') sub = 'Thumbnails'
-    if (sub) return sub
+    if (sub && visibleSubCategories.includes(sub)) return sub
     let ct = draft.contentType
     if (ct === 'Thumbnails (YT, IG, FB)') ct = 'Thumbnails'
-    if (ct && formatDef.subCategories.includes(ct)) {
+    if (ct && visibleSubCategories.includes(ct)) {
       return ct
     }
-    return formatDef.subCategories[0] || ''
-  }, [draft.productionMeta?.subCategory, draft.contentType, formatDef])
+    return visibleSubCategories[0] || formatDef.subCategories[0] || ''
+  }, [draft.productionMeta?.subCategory, draft.contentType, visibleSubCategories, formatDef])
 
   const activeStages = useMemo(() => {
     return filterStagesForFormat(stages, currentFormat, currentSubCategory)
@@ -109,7 +136,10 @@ export function ContentSheet({
 
   const handleFormatChange = (fmt: ProductionFormat) => {
     const def = PRODUCTION_FORMATS.find((f) => f.id === fmt) || PRODUCTION_FORMATS[0]
-    const nextSub = def.subCategories[0]
+    const subsForFmt = workspace.enabledSubCategories && workspace.enabledSubCategories.length > 0
+      ? def.subCategories.filter((sc) => workspace.enabledSubCategories!.includes(sc))
+      : def.subCategories
+    const nextSub = subsForFmt[0] || def.subCategories[0] || ''
     setDraft((d) => {
       const nextMeta = { ...(d.productionMeta || {}), subCategory: nextSub, customRatio: '' }
       if (fmt === 'static') {
@@ -184,10 +214,16 @@ export function ContentSheet({
   }
 
   const availableContentTypes = useMemo(() => {
-    const specific = formatDef.contentTypes
-    const others = taxonomies.contentTypes.filter((ct) => !specific.includes(ct))
+    const specific = visibleSubCategories.length > 0 ? visibleSubCategories : formatDef.contentTypes
+    const others = taxonomies.contentTypes.filter((ct) => {
+      if (specific.includes(ct)) return false
+      if (workspace.enabledSubCategories && workspace.enabledSubCategories.length > 0) {
+        return workspace.enabledSubCategories.includes(ct)
+      }
+      return true
+    })
     return [...specific, ...others]
-  }, [formatDef, taxonomies.contentTypes])
+  }, [visibleSubCategories, formatDef.contentTypes, taxonomies.contentTypes, workspace.enabledSubCategories])
 
   /** Back-fills every empty stage deadline from the publish date. */
   const cascadeDeadlines = (publishDate: string) => {
@@ -210,6 +246,25 @@ export function ContentSheet({
       onClose()
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleCopy = async () => {
+    const success = await copyContentToClipboard(
+      {
+        ...draft,
+        productionFormat: currentFormat,
+        contentType: currentSubCategory || draft.contentType,
+      },
+      activeStages,
+      members,
+    )
+    if (success) {
+      setCopied(true)
+      notify('Content details copied to clipboard', 'success')
+      window.setTimeout(() => setCopied(false), 2000)
+    } else {
+      notify('Unable to copy to clipboard', 'danger')
     }
   }
 
@@ -241,9 +296,19 @@ export function ContentSheet({
       size="lg"
       footer={
         readOnly ? (
-          <Button variant="ghost" onClick={onClose}>
-            Close
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              icon={copied ? 'check' : 'copy'}
+              onClick={() => void handleCopy()}
+              title="Copy content details to clipboard in a structured format"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+          </>
         ) : (
           <>
             {canDelete && onDelete && (
@@ -258,6 +323,14 @@ export function ContentSheet({
                 Delete
               </Button>
             )}
+            <Button
+              variant="ghost"
+              icon={copied ? 'check' : 'copy'}
+              onClick={() => void handleCopy()}
+              title="Copy content details to clipboard in a structured format"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </Button>
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
@@ -285,8 +358,19 @@ export function ContentSheet({
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            {PRODUCTION_FORMATS.map((fmt) => {
+          <div
+            className={cx(
+              'grid gap-2.5',
+              visibleFormats.length === 1
+                ? 'grid-cols-1'
+                : visibleFormats.length === 2
+                  ? 'grid-cols-2'
+                  : visibleFormats.length === 3
+                    ? 'grid-cols-3'
+                    : 'grid-cols-2 sm:grid-cols-4',
+            )}
+          >
+            {visibleFormats.map((fmt) => {
               const isSelected = currentFormat === fmt.id
               return (
                 <button
@@ -337,7 +421,7 @@ export function ContentSheet({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {formatDef.subCategories.map((subCat) => {
+            {visibleSubCategories.map((subCat) => {
               const isSubActive = currentSubCategory === subCat
               return (
                 <button

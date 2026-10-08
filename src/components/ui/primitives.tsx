@@ -93,8 +93,8 @@ const BUTTON_VARIANT: Record<ButtonVariant, string> = {
 
 const BUTTON_SIZE = {
   sm: 'h-8 gap-2 px-3 text-body-xs',
-  md: 'h-9.5 gap-2 px-4 text-body-sm',
-  lg: 'h-11 gap-2.5 px-5 text-body-md',
+  md: 'h-[42px] gap-2 px-5 text-body-sm font-medium',
+  lg: 'h-11 gap-2.5 px-6 text-body-md',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -141,7 +141,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       title={label}
       className={cx(
         'inline-flex shrink-0 items-center justify-center rounded-lg border transition-all duration-150 touch-manipulation active:scale-[0.96]',
-        size === 'sm' ? 'h-9 w-9 sm:h-8 sm:w-8' : 'h-10 w-10 sm:h-9.5 sm:w-9.5',
+        size === 'sm' ? 'h-9 w-9 sm:h-8 sm:w-8' : 'h-10 w-10 sm:h-[42px] sm:w-[42px]',
         active
           ? 'border-accent/50 bg-accent/15 text-primary shadow-xs'
           : tone === 'danger'

@@ -18,6 +18,15 @@ import { useStore } from '@/state/store'
 import { APP_NAME, APP_TAGLINE } from '@/brand'
 import { PIPELINE_TEMPLATES } from '@/lib/templates'
 import { mergePipelines } from '@/lib/pipelineMerge'
+import {
+  PRODUCTION_FORMATS,
+  WORKFLOW_PRESETS,
+  CORE_TAXONOMY_CATEGORIES,
+  FULL_TAXONOMY_CATEGORIES,
+  getAllSubCategories,
+  getPresetById,
+} from '@/lib/productionFormats'
+import type { ProductionFormat } from '@/lib/types'
 
 type Mode = 'create' | 'join'
 
@@ -39,7 +48,17 @@ export function Welcome() {
 
   // Create form
   const [wsName, setWsName] = useState('')
-  const [selectedPipelines, setSelectedPipelines] = useState<string[]>(['video'])
+  const [workflowPreset, setWorkflowPreset] = useState<string>('all')
+  const [selectedPipelines, setSelectedPipelines] = useState<string[]>(['video', 'design'])
+  const [enabledFormats, setEnabledFormats] = useState<ProductionFormat[]>([
+    'video',
+    'static',
+    'written',
+    'brief',
+  ])
+  const [enabledSubCategories, setEnabledSubCategories] = useState<string[]>(getAllSubCategories())
+  const [categoryScope, setCategoryScope] = useState<'streamlined' | 'all'>('all')
+  const [showCustomWorkflow, setShowCustomWorkflow] = useState<boolean>(false)
   const [prefix, setPrefix] = useState('CN')
   const [mondayStart, setMondayStart] = useState(true)
   const [withSample, setWithSample] = useState(true)
@@ -56,12 +75,56 @@ export function Welcome() {
 
   const mergeReport = useMemo(() => mergePipelines(selectedPipelines), [selectedPipelines])
 
+  const applyPreset = (id: string) => {
+    setWorkflowPreset(id)
+    if (id === 'custom') {
+      setShowCustomWorkflow(true)
+      return
+    }
+    const preset = getPresetById(id)
+    setSelectedPipelines([...preset.pipelines])
+    setEnabledFormats([...preset.formats])
+    setEnabledSubCategories([...preset.subCategories])
+    setCategoryScope(id === 'all' ? 'all' : 'streamlined')
+  }
+
   const togglePipeline = (id: string) => {
+    setWorkflowPreset('custom')
     if (selectedPipelines.includes(id)) {
       if (selectedPipelines.length === 1) return // Keep at least one active
       setSelectedPipelines(selectedPipelines.filter((p) => p !== id))
     } else {
       setSelectedPipelines([...selectedPipelines, id])
+    }
+  }
+
+  const toggleFormat = (fmt: ProductionFormat) => {
+    setWorkflowPreset('custom')
+    if (enabledFormats.includes(fmt)) {
+      if (enabledFormats.length === 1) return // Keep at least one
+      const nextFormats = enabledFormats.filter((f) => f !== fmt)
+      setEnabledFormats(nextFormats)
+      const def = PRODUCTION_FORMATS.find((f) => f.id === fmt)
+      if (def) {
+        setEnabledSubCategories((prev) => prev.filter((sc) => !def.subCategories.includes(sc)))
+      }
+    } else {
+      const nextFormats = [...enabledFormats, fmt]
+      setEnabledFormats(nextFormats)
+      const def = PRODUCTION_FORMATS.find((f) => f.id === fmt)
+      if (def) {
+        setEnabledSubCategories((prev) => Array.from(new Set([...prev, ...def.subCategories])))
+      }
+    }
+  }
+
+  const toggleSubCategory = (subCat: string) => {
+    setWorkflowPreset('custom')
+    if (enabledSubCategories.includes(subCat)) {
+      if (enabledSubCategories.length === 1) return // Keep at least one
+      setEnabledSubCategories((prev) => prev.filter((s) => s !== subCat))
+    } else {
+      setEnabledSubCategories((prev) => [...prev, subCat])
     }
   }
 
@@ -84,6 +147,9 @@ export function Welcome() {
     }
     setBusy(true)
     try {
+      const chosenCategories =
+        categoryScope === 'streamlined' ? CORE_TAXONOMY_CATEGORIES : FULL_TAXONOMY_CATEGORIES
+
       await createWorkspace({
         name: wsName.trim(),
         templateId: selectedPipelines[0],
@@ -91,6 +157,10 @@ export function Welcome() {
         contentPrefix: prefix.trim() || 'CN',
         weekStartsOn: mondayStart ? 1 : 0,
         withSample,
+        enabledFormats,
+        enabledSubCategories,
+        workflowPreset,
+        categories: chosenCategories,
       })
       navigate(returnTo, { replace: true })
     } catch (e) {
@@ -213,52 +283,66 @@ export function Welcome() {
                   />
                 </Field>
 
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="label-caps font-bold text-ink">Production Pipelines</span>
-                    <span className="text-body-xs text-primary font-medium">
-                      {selectedPipelines.length} selected {selectedPipelines.length > 1 && '· Merged'}
+                {/* -------- Workflow & Content Setup -------- */}
+                <div className="space-y-4 rounded-xl border border-line/70 bg-sunken/40 p-4 sm:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="block text-body-sm font-bold text-ink">
+                        Workflow & Content Setup
+                      </span>
+                      <span className="text-body-xs text-ink-dim">
+                        Pick the workflow options and content segments you want to keep. You can always change or add more in Settings later.
+                      </span>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-label-micro uppercase font-bold text-primary">
+                      Step 2 of 2
                     </span>
                   </div>
-                  <p className="mb-3 text-body-xs text-ink-dim">
-                    Select one or more pipelines. If you produce both video and design work, select both — repeating stages (like Review) merge into a single, unified flow.
-                  </p>
+
+                  {/* Preset Choices */}
                   <div className="grid gap-2.5 sm:grid-cols-2">
-                    {PIPELINE_TEMPLATES.map((t) => {
-                      const isSelected = selectedPipelines.includes(t.id)
+                    {WORKFLOW_PRESETS.map((p) => {
+                      const isSelected = workflowPreset === p.id
                       return (
                         <button
-                          key={t.id}
+                          key={p.id}
                           type="button"
-                          onClick={() => togglePipeline(t.id)}
+                          onClick={() => applyPreset(p.id)}
                           className={cx(
                             'relative rounded-lg border p-3.5 text-left transition-all',
                             isSelected
-                              ? 'border-primary/70 bg-accent/15 ring-1 ring-primary/40 shadow-sm'
-                              : 'border-line/50 bg-sunken/50 hover:border-line hover:bg-sunken/70',
+                              ? 'border-primary/80 bg-accent/20 ring-2 ring-primary/40 shadow-sm'
+                              : 'border-line/60 bg-raised/70 hover:border-line hover:bg-raised',
                           )}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <span className="block text-body-sm font-bold text-ink">{t.name}</span>
-                              <span className="mt-1 block text-body-xs text-ink-dim leading-relaxed">{t.blurb}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-body-sm font-bold text-ink">{p.name}</span>
+                                <span className="rounded bg-accent/25 px-1.5 py-0.5 text-label-micro font-bold text-primary">
+                                  {p.badge}
+                                </span>
+                              </div>
+                              <span className="mt-1 block text-body-xs text-ink-dim leading-snug">
+                                {p.description}
+                              </span>
                             </div>
                             <span
                               className={cx(
-                                'flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors',
+                                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
                                 isSelected
                                   ? 'border-primary bg-primary text-white'
-                                  : 'border-line/80 bg-raised/80 text-transparent',
+                                  : 'border-line/80 bg-sunken text-transparent',
                               )}
                             >
-                              <Icon name="check" size={13} />
+                              <Icon name="check" size={11} />
                             </span>
                           </div>
-                          <div className="mt-2.5 flex flex-wrap items-center gap-1 font-mono text-label-micro text-ink-faint">
-                            {t.stages.map((s, idx) => (
-                              <span key={s.name} className="flex items-center gap-1">
-                                {idx > 0 && <span className="opacity-40">→</span>}
-                                <span>{s.name}</span>
+                          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 font-mono text-label-micro text-ink-faint">
+                            <span>Segments:</span>
+                            {p.formats.map((f) => (
+                              <span key={f} className="rounded bg-sunken/80 px-1.5 py-0.5 capitalize text-ink">
+                                {f}
                               </span>
                             ))}
                           </div>
@@ -267,56 +351,190 @@ export function Welcome() {
                     })}
                   </div>
 
-                  {/* Pipeline Merge Banner & Stage Preview */}
-                  <div className="mt-3 rounded-lg border border-line/60 bg-sunken/50 p-3.5">
-                    {selectedPipelines.length > 1 ? (
+                  {/* Customization Toggle & Details */}
+                  <div className="rounded-lg border border-line/60 bg-raised p-3.5 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/25 text-primary text-body-xs font-bold">
-                            🔀
-                          </span>
-                          <span className="text-body-xs font-bold text-ink">
-                            Merged Production Pipeline ({mergeReport.stages.length} stages)
-                          </span>
-                        </div>
-                        <p className="mt-1 text-body-xs text-ink-dim leading-relaxed">
-                          {mergeReport.repeatedStages.length > 0 ? (
-                            <>
-                              Repeated stages (
-                              <strong className="font-semibold text-primary">
-                                {mergeReport.repeatedStages.map((r) => r.name).join(', ')}
-                              </strong>
-                              ) merged into one; duplicate copies were removed.
-                            </>
-                          ) : (
-                            'Pipelines merged into a sequential creative workflow.'
-                          )}
-                        </p>
-                        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 font-mono text-label-micro">
-                          {mergeReport.stages.map((s, idx) => (
-                            <span key={s.name} className="flex items-center gap-1.5">
-                              {idx > 0 && <span className="text-ink-faint">→</span>}
-                              <span
+                        <span className="block text-body-xs font-bold text-ink">
+                          Content Segments to Keep ({enabledFormats.length} of {PRODUCTION_FORMATS.length} active)
+                        </span>
+                        <span className="text-body-xs text-ink-dim">
+                          Toggle segments on or off, and click individual subcategories to keep or exclude specific formats.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomWorkflow((v) => !v)}
+                        className="shrink-0 text-body-xs font-semibold text-primary hover:underline"
+                      >
+                        {showCustomWorkflow ? 'Collapse details' : 'Customize options'}
+                      </button>
+                    </div>
+
+                    {/* Segment Toggles */}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {PRODUCTION_FORMATS.map((fmt) => {
+                        const isEnabled = enabledFormats.includes(fmt.id)
+                        const activeSubs = fmt.subCategories.filter((sc) => enabledSubCategories.includes(sc))
+                        return (
+                          <div
+                            key={fmt.id}
+                            className={cx(
+                              'rounded-lg border p-3 transition-colors',
+                              isEnabled
+                                ? 'border-primary/40 bg-accent/10'
+                                : 'border-line/50 bg-sunken/40 opacity-70',
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="flex h-6 w-6 items-center justify-center rounded bg-accent/25 text-primary">
+                                  <Icon name={fmt.icon} size={14} />
+                                </span>
+                                <span className="text-body-sm font-bold text-ink">{fmt.label}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => toggleFormat(fmt.id)}
                                 className={cx(
-                                  'rounded px-2 py-0.5 border',
-                                  s.isRepeated
-                                    ? 'border-primary/50 bg-primary/10 text-primary font-bold'
-                                    : 'border-line/60 bg-raised text-ink',
+                                  'rounded px-2 py-0.5 text-label-micro font-semibold transition-colors',
+                                  isEnabled
+                                    ? 'bg-primary text-white'
+                                    : 'bg-sunken text-ink-dim hover:bg-raised border border-line/60',
                                 )}
                               >
-                                {s.name}
-                                {s.isRepeated && ' 🔁'}
-                              </span>
+                                {isEnabled ? 'Active' : 'Excluded'}
+                              </button>
+                            </div>
+                            <p className="text-label-micro text-ink-dim mb-2">
+                              {fmt.tagline} · {isEnabled ? `${activeSubs.length} active` : 'excluded'}
+                            </p>
+
+                            {/* Subcategories */}
+                            {isEnabled && (
+                              <div className="flex flex-wrap gap-1 pt-1 border-t border-line/40">
+                                {fmt.subCategories.map((subCat) => {
+                                  const subActive = enabledSubCategories.includes(subCat)
+                                  return (
+                                    <button
+                                      key={subCat}
+                                      type="button"
+                                      onClick={() => toggleSubCategory(subCat)}
+                                      className={cx(
+                                        'rounded px-1.5 py-0.5 text-label-micro transition-all',
+                                        subActive
+                                          ? 'border border-primary/40 bg-primary/10 text-primary font-medium'
+                                          : 'border border-line/40 bg-sunken/60 text-ink-faint line-through opacity-60 hover:opacity-100',
+                                      )}
+                                      title={subActive ? 'Click to exclude' : 'Click to include'}
+                                    >
+                                      {subCat}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Taxonomy Category Volume Choice */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-lg border border-line/50 bg-sunken/40 p-3">
+                      <div>
+                        <span className="block text-body-xs font-bold text-ink">
+                          Category Options in Dropdowns
+                        </span>
+                        <span className="text-label-micro text-ink-dim">
+                          Avoid being bombarded with too many options by starting with core categories.
+                        </span>
+                      </div>
+                      <div className="inline-flex rounded-md border border-line/60 bg-raised p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setCategoryScope('streamlined')}
+                          className={cx(
+                            'rounded px-2.5 py-1 text-label-micro font-medium transition-colors',
+                            categoryScope === 'streamlined'
+                              ? 'bg-primary text-white shadow-xs'
+                              : 'text-ink-dim hover:text-ink',
+                          )}
+                        >
+                          Core 5 Categories
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCategoryScope('all')}
+                          className={cx(
+                            'rounded px-2.5 py-1 text-label-micro font-medium transition-colors',
+                            categoryScope === 'all'
+                              ? 'bg-primary text-white shadow-xs'
+                              : 'text-ink-dim hover:text-ink',
+                          )}
+                        >
+                          All 9 Categories
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Granular Pipeline Accordion */}
+                    {showCustomWorkflow && (
+                      <div className="space-y-3 pt-2 border-t border-line/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-body-xs font-bold text-ink">Active Production Pipelines</span>
+                          <span className="text-label-micro text-primary font-medium">
+                            {selectedPipelines.length} pipeline{selectedPipelines.length > 1 ? 's' : ''} merged
+                          </span>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {PIPELINE_TEMPLATES.map((t) => {
+                            const isSelected = selectedPipelines.includes(t.id)
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => togglePipeline(t.id)}
+                                className={cx(
+                                  'flex items-center justify-between rounded-lg border p-2.5 text-left text-body-xs transition-colors',
+                                  isSelected
+                                    ? 'border-primary/60 bg-accent/15 font-semibold text-ink'
+                                    : 'border-line/50 bg-sunken/40 text-ink-dim hover:bg-sunken',
+                                )}
+                              >
+                                <span>{t.name}</span>
+                                <span
+                                  className={cx(
+                                    'flex h-4 w-4 items-center justify-center rounded border text-label-micro',
+                                    isSelected
+                                      ? 'border-primary bg-primary text-white'
+                                      : 'border-line/60 bg-raised text-transparent',
+                                  )}
+                                >
+                                  ✓
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1 font-mono text-label-micro text-ink-dim pt-1">
+                          <span className="font-semibold text-ink">Merged Stages ({mergeReport.stages.length}):</span>
+                          {mergeReport.stages.map((s, idx) => (
+                            <span key={s.name} className="flex items-center gap-1">
+                              {idx > 0 && <span className="opacity-40">→</span>}
+                              <span className="rounded border border-line/60 bg-sunken px-1.5 py-0.5 text-ink">{s.name}</span>
                             </span>
                           ))}
                         </div>
                       </div>
-                    ) : (
-                      <p className="text-body-xs text-ink-faint">
-                        <strong className="font-semibold text-ink-dim">Active flow:</strong>{' '}
-                        {mergeReport.stages.map((s) => s.name).join(' → ')} · fully customizable anytime in Settings.
-                      </p>
                     )}
+
+                    {/* Reassurance Notice */}
+                    <div className="flex items-start gap-2 rounded-md border border-line/60 bg-sunken/60 p-2.5 text-body-xs text-ink-dim">
+                      <Icon name="key" size={14} className="mt-0.5 shrink-0 text-primary" />
+                      <span>
+                        <strong className="font-semibold text-ink">Always adjustable:</strong> You can return to Settings at any time to add new options, re-enable segments, or expand fields as your workflow evolves.
+                      </span>
+                    </div>
                   </div>
                 </div>
 

@@ -92,6 +92,14 @@ export interface Workspace {
   taxonomies: Taxonomies
   /** Selected pipeline template IDs when multi-pipeline workflows are active. */
   selectedPipelines?: string[]
+  /** Active production formats in this workspace (Static, Video, Write-Up, Brief). */
+  enabledFormats?: ProductionFormat[]
+  /** Active sub-categories within enabled formats. */
+  enabledSubCategories?: string[]
+  /** Specific pipeline modules / feature modules enabled in this workspace. */
+  enabledModules?: string[]
+  /** Initial setup preset choice (all, video, design, written, agency, custom). */
+  workflowPreset?: string
   createdAt: string
   createdBy: string
 }

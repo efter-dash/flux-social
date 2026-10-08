@@ -17,6 +17,7 @@ Runs entirely offline in your browser with local IndexedDB storage, or syncs acr
 ## Key Features
 
 - **Multi-Pipeline & Merged Production**: Select multiple production pipelines (e.g. Video + Design for agencies). Repeating stages (such as Review or Brief) merge into one unified step, while duplicate features are removed automatically. Includes stage-by-stage Kanban board with cycle time alerts and stalled item detection.
+- **Unified Content Creator & 1-Click Structured Export**: Standardized full-size `+New Content` action buttons across navigation and headers. Open the comprehensive content sheet to define format-specific metadata (video hooks, script outlines, audio cues, dimensions, aspect ratios, guest notes, social copy). Click the dedicated **Copy** button to instantly copy the entire structured brief to your clipboard in clean, word-processor-ready text without asterisks or awkward spacing gaps.
 - **Monthly Content Calendar**: Visual schedule grid with cross-platform indicators, date filtering, and unscheduled staging area.
 - **Daily Task Tracker**: Role-based assignment, priority flags, and automatic overdue calculation.
 - **Content Idea Bank**: Funnel ideas from concept to approval, with 1-click promotion directly into the active production pipeline.
@@ -24,6 +25,20 @@ Runs entirely offline in your browser with local IndexedDB storage, or syncs acr
 - **AI Reports & Summaries (Ollama)**: 100% private, local LLM generation. Produces daily standup briefings, monthly retrospectives, and pipeline velocity audits without sending any data to external servers.
 - **Desktop Ready (PWA & 1-Click Launchers)**: Run as a standalone desktop window on macOS, Windows, and Linux with full offline support.
 - **Command Palette**: Press `⌘K` or `Ctrl+K` anywhere to jump between items, tasks, and settings instantly.
+
+---
+
+## 📋 Content Planning & Formatted Clipboard Export
+
+When planning content or creating a new item via the **`+New`** button:
+
+1. **Fill Out Content Details**: Enter title, production format (Short Video, Long Video, Carousel, Graphic, Article, Audio), platform, target publishing date, active pipeline stages with assignees, and format-specific production specs (e.g., video hooks, trending audio cues, aspect ratios, subtitles, shot lists, captions, hashtags, and links).
+2. **One-Click "Copy" Button**: Click the **Copy** button located at the bottom of the Content window alongside Save and Cancel.
+3. **Structured Word-Processor Output**:
+   - **Zero Asterisks (`*`)**: All raw markdown bold and bullet asterisks are cleaned into clean, natural text headings and clean dashes (`-`).
+   - **No Awkward Gaps or Blank Breaks**: Unfilled or omitted fields are excluded so the output remains tight, readable, and compact.
+   - **Universal Compatibility**: Paste directly into **Microsoft Word**, **Google Docs**, **Apple Notes**, **Notion**, **Slack**, or email with properly structured hierarchy, stage statuses, deadlines, and production notes ready for writers, editors, and collaborators.
+   - **Live Visual Confirmation**: The button switches to a green checkmark **Copied!** indicator and triggers a confirmation notification.
 
 ---
 

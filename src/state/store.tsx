@@ -34,6 +34,7 @@ import type {
   Workspace,
   WorkspaceData,
   StageState,
+  ProductionFormat,
 } from '@/lib/types'
 import { getRepo, backendKind, type Repo } from '@/lib/db'
 import {
@@ -43,6 +44,7 @@ import {
   newMember,
   newTask,
   newWorkspace,
+  stagesFromPipelines,
   makeJoinCode,
   uid,
 } from '@/lib/factories'
@@ -116,6 +118,11 @@ interface StoreValue {
     contentPrefix?: string
     weekStartsOn?: 0 | 1
     withSample?: boolean
+    enabledFormats?: ProductionFormat[]
+    enabledSubCategories?: string[]
+    enabledModules?: string[]
+    workflowPreset?: string
+    categories?: string[]
   }) => Promise<string>
   openWorkspace: (id: string) => Promise<void>
   joinByCode: (code: string, displayName?: string) => Promise<string>
@@ -374,6 +381,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const sample = buildSampleWorkspace(user, opts.name)
         sample.workspace.contentPrefix = (opts.contentPrefix || 'CN').toUpperCase()
         sample.workspace.weekStartsOn = opts.weekStartsOn ?? 1
+        if (opts.templateIds && opts.templateIds.length > 0) {
+          sample.workspace.selectedPipelines = opts.templateIds
+          const { stages } = stagesFromPipelines(opts.templateIds)
+          sample.workspace.stages = stages
+        }
+        if (opts.enabledFormats) sample.workspace.enabledFormats = opts.enabledFormats
+        if (opts.enabledSubCategories) sample.workspace.enabledSubCategories = opts.enabledSubCategories
+        if (opts.enabledModules) sample.workspace.enabledModules = opts.enabledModules
+        if (opts.workflowPreset) sample.workspace.workflowPreset = opts.workflowPreset
+        if (opts.categories && opts.categories.length > 0) {
+          sample.workspace.taxonomies.categories = [...opts.categories]
+        }
         await r.createWorkspace(sample.workspace, sample.members[0])
         await r.putMany('members', sample.members.slice(1))
         await r.putMany('content', sample.content)
@@ -394,6 +413,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         createdBy: user.uid,
         contentPrefix: opts.contentPrefix,
         weekStartsOn: opts.weekStartsOn,
+        enabledFormats: opts.enabledFormats,
+        enabledSubCategories: opts.enabledSubCategories,
+        enabledModules: opts.enabledModules,
+        workflowPreset: opts.workflowPreset,
+        categories: opts.categories,
       })
       const firstMember = newMember({
         workspaceId: workspace.id,
@@ -793,6 +817,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ownerId: me?.id ?? data.members[0]?.id ?? '',
         updatedBy: user?.uid ?? '',
         month,
+        enabledFormats: data.workspace.enabledFormats,
+        enabledSubCategories: data.workspace.enabledSubCategories,
       })
       // Pre-assign each stage to someone holding the matching job role.
       for (const stage of data.workspace.stages) {

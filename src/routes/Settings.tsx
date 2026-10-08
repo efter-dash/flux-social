@@ -39,12 +39,25 @@ import {
   testOllamaConnection,
 } from '@/lib/ollama'
 import { useStore } from '@/state/store'
-import type { AccessLevel, PlatformDef, Stage, Taxonomies } from '@/lib/types'
+import type { AccessLevel, PlatformDef, ProductionFormat, Stage, Taxonomies } from '@/lib/types'
 import { uid } from '@/lib/factories'
 import { PIPELINE_TEMPLATES } from '@/lib/templates'
+import {
+  PRODUCTION_FORMATS,
+  WORKFLOW_PRESETS,
+  getAllSubCategories,
+  getPresetById,
+} from '@/lib/productionFormats'
+import {
+  PIPELINE_SECTIONS,
+  getAllModuleIds,
+  isModuleActive,
+  reconfigureWorkspaceWorkflow,
+  type PipelineSectionDef,
+} from '@/lib/pipelineModules'
 import { APP_NAME } from '@/brand'
 
-type Tab = 'workspace' | 'pipeline' | 'lists' | 'access' | 'data' | 'desktop'
+type Tab = 'workspace' | 'pipeline' | 'workflow' | 'lists' | 'access' | 'data' | 'desktop'
 
 export function SettingsPage() {
   const { data, canManage, access } = useStore()
@@ -74,6 +87,7 @@ export function SettingsPage() {
         tabs={[
           { id: 'workspace', label: 'Workspace' },
           { id: 'pipeline', label: 'Pipeline' },
+          { id: 'workflow', label: 'Content & Workflow' },
           { id: 'lists', label: 'Dropdowns' },
           { id: 'access', label: 'Access' },
           { id: 'data', label: 'Data' },
@@ -83,8 +97,9 @@ export function SettingsPage() {
         onChange={setTab}
       />
 
-      {tab === 'workspace' && <WorkspaceTab />}
+      {tab === 'workspace' && <WorkspaceTab onNavigateTab={(t) => setTab(t)} />}
       {tab === 'pipeline' && <PipelineTab />}
+      {tab === 'workflow' && <WorkflowTab />}
       {tab === 'lists' && <ListsTab />}
       {tab === 'access' && <AccessTab />}
       {tab === 'data' && <DataTab />}
@@ -97,13 +112,21 @@ export function SettingsPage() {
 // Workspace
 // ---------------------------------------------------------------------------
 
-function WorkspaceTab() {
+function WorkspaceTab({ onNavigateTab }: { onNavigateTab?: (t: Tab) => void }) {
   const { data, canManage, updateWorkspace, notify } = useStore()
   const [name, setName] = useState(data?.workspace.name ?? '')
   const [initials, setInitials] = useState(data?.workspace.initials ?? '')
   const [prefix, setPrefix] = useState(data?.workspace.contentPrefix ?? 'CN')
   if (!data) return null
   const { workspace } = data
+
+  const enabledFormats = workspace.enabledFormats && workspace.enabledFormats.length > 0
+    ? workspace.enabledFormats
+    : (['static', 'video', 'written', 'brief'] as ProductionFormat[])
+
+  const enabledSubCategories = workspace.enabledSubCategories && workspace.enabledSubCategories.length > 0
+    ? workspace.enabledSubCategories
+    : getAllSubCategories()
 
   const dirty =
     name !== workspace.name || initials !== workspace.initials || prefix !== workspace.contentPrefix
@@ -201,6 +224,47 @@ function WorkspaceTab() {
       </Card>
 
       <Card className="lg:col-span-2">
+        <CardHeader
+          label="Workflow"
+          title="Content Segments & Fields"
+          action={
+            onNavigateTab ? (
+              <Button
+                size="sm"
+                variant="quiet"
+                icon="sliders"
+                onClick={() => onNavigateTab('workflow')}
+              >
+                Customize workflow
+              </Button>
+            ) : undefined
+          }
+        />
+        <div className="space-y-3 p-widget">
+          <div className="flex flex-col gap-3 rounded-md border border-line/50 bg-sunken/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <span className="block text-body-sm text-ink font-medium">
+                Active Segments: {enabledFormats.map((f) => f.toUpperCase()).join(' · ')}
+              </span>
+              <span className="block text-body-xs text-ink-dim">
+                {enabledFormats.length} of 4 content segments active ({enabledSubCategories.length} subcategory fields enabled).
+                Hiding unused segments streamlines the New Content form.
+              </span>
+            </div>
+            {onNavigateTab && (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => onNavigateTab('workflow')}
+              >
+                Manage Segments
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      <Card className="lg:col-span-2">
         <CardHeader label="Appearance" title="Theme mode" />
         <div className="space-y-3 p-widget">
           <div className="flex flex-col gap-3 rounded-md border border-line/50 bg-sunken/50 p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -215,6 +279,405 @@ function WorkspaceTab() {
         </div>
       </Card>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline & Module Configurator
+// ---------------------------------------------------------------------------
+
+function PipelineModulesConfigurator({
+  onStagesUpdated,
+}: {
+  onStagesUpdated?: (stages: Stage[]) => void
+}) {
+  const { data, canManage, updateWorkspace, notify } = useStore()
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
+
+  if (!data) return null
+  const { workspace } = data
+
+  const currentModuleIds = useMemo(() => {
+    if (workspace.enabledModules && workspace.enabledModules.length > 0) {
+      return new Set(workspace.enabledModules)
+    }
+    const set = new Set<string>()
+    for (const section of PIPELINE_SECTIONS) {
+      for (const mod of section.modules) {
+        if (isModuleActive(workspace, mod.id)) {
+          set.add(mod.id)
+        }
+      }
+    }
+    return set
+  }, [workspace])
+
+  const toggleSectionCollapse = (sectionId: string) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [sectionId]: !prev[sectionId],
+    }))
+  }
+
+  const handleToggleModule = async (moduleId: string) => {
+    if (!canManage) return
+    const nextSet = new Set(currentModuleIds)
+    if (nextSet.has(moduleId)) {
+      if (nextSet.size === 1) {
+        notify('Keep at least one module enabled in your workspace', 'danger')
+        return
+      }
+      nextSet.delete(moduleId)
+    } else {
+      nextSet.add(moduleId)
+    }
+
+    const patch = reconfigureWorkspaceWorkflow(workspace, Array.from(nextSet))
+    await updateWorkspace(patch)
+    if (patch.stages && onStagesUpdated) {
+      onStagesUpdated(patch.stages)
+    }
+    notify('Pipeline module updated', 'success')
+  }
+
+  const handleToggleEntirePipeline = async (section: PipelineSectionDef) => {
+    if (!canManage) return
+    const sectionModuleIds = section.modules.map((m) => m.id)
+    const isSectionActive = sectionModuleIds.some((id) => currentModuleIds.has(id))
+
+    const nextSet = new Set(currentModuleIds)
+    if (isSectionActive) {
+      const remainingCount = Array.from(nextSet).filter(
+        (id) => !sectionModuleIds.includes(id),
+      ).length
+      if (remainingCount === 0) {
+        notify('Keep at least one pipeline active in your workspace', 'danger')
+        return
+      }
+      for (const id of sectionModuleIds) {
+        nextSet.delete(id)
+      }
+    } else {
+      for (const id of sectionModuleIds) {
+        nextSet.add(id)
+      }
+    }
+
+    const patch = reconfigureWorkspaceWorkflow(workspace, Array.from(nextSet))
+    await updateWorkspace(patch)
+    if (patch.stages && onStagesUpdated) {
+      onStagesUpdated(patch.stages)
+    }
+    notify(
+      isSectionActive ? `Disabled ${section.name}` : `Enabled ${section.name}`,
+      'success',
+    )
+  }
+
+  const handleSetSectionModules = async (section: PipelineSectionDef, enableAll: boolean) => {
+    if (!canManage) return
+    const sectionModuleIds = section.modules.map((m) => m.id)
+    const nextSet = new Set(currentModuleIds)
+
+    if (enableAll) {
+      for (const id of sectionModuleIds) nextSet.add(id)
+    } else {
+      const remainingCount = Array.from(nextSet).filter(
+        (id) => !sectionModuleIds.includes(id),
+      ).length
+      if (remainingCount === 0) {
+        notify('Keep at least one module enabled in the workspace', 'danger')
+        return
+      }
+      for (const id of sectionModuleIds) nextSet.delete(id)
+    }
+
+    const patch = reconfigureWorkspaceWorkflow(workspace, Array.from(nextSet))
+    await updateWorkspace(patch)
+    if (patch.stages && onStagesUpdated) {
+      onStagesUpdated(patch.stages)
+    }
+    notify(`${section.name} modules updated`, 'success')
+  }
+
+  const handleApplyPreset = async (presetId: 'all' | 'video' | 'design' | 'written') => {
+    if (!canManage) return
+    let targetModules: string[] = []
+
+    if (presetId === 'all') {
+      targetModules = getAllModuleIds()
+    } else if (presetId === 'video') {
+      const videoMods = PIPELINE_SECTIONS.find((s) => s.id === 'video')?.modules.map((m) => m.id) || []
+      targetModules = [...videoMods, 'design_thumbnails']
+    } else if (presetId === 'design') {
+      targetModules = PIPELINE_SECTIONS.find((s) => s.id === 'design')?.modules.map((m) => m.id) || []
+    } else if (presetId === 'written') {
+      targetModules = PIPELINE_SECTIONS.find((s) => s.id === 'written')?.modules.map((m) => m.id) || []
+    }
+
+    const patch = reconfigureWorkspaceWorkflow(workspace, targetModules, [presetId === 'all' ? 'video' : presetId])
+    await updateWorkspace(patch)
+    if (patch.stages && onStagesUpdated) {
+      onStagesUpdated(patch.stages)
+    }
+    notify('Applied workflow preset', 'success')
+  }
+
+  const totalModules = getAllModuleIds().length
+  const activeCount = currentModuleIds.size
+
+  return (
+    <Card>
+      <CardHeader
+        label="Pipeline Configuration"
+        title="Active Pipelines & Modules"
+        action={
+          canManage ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                icon="sparkle"
+                onClick={() => void handleApplyPreset('all')}
+              >
+                Enable All
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
+      <div className="space-y-4 p-widget">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <p className="text-body-sm text-ink-dim max-w-2xl leading-relaxed">
+            Re-configure your active workspace pipelines at any time by checking or unchecking specific modules.
+            The <strong>New Content</strong> form, Kanban pipeline columns, and filters dynamically adapt to these settings.
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-label-micro font-bold text-primary">
+              {activeCount} of {totalModules} Modules Active
+            </span>
+            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 font-mono text-label-micro font-bold text-emerald-600 dark:text-emerald-400">
+              ● Persistent
+            </span>
+          </div>
+        </div>
+
+        {/* Quick Presets */}
+        {canManage && (
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-line/40">
+            <span className="font-mono text-label-micro uppercase font-bold text-ink-faint">
+              Presets:
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleApplyPreset('all')}
+              className="rounded-md border border-line/60 bg-sunken/60 px-2.5 py-1 text-label-micro font-semibold text-ink hover:border-primary hover:bg-accent/15 transition-all"
+            >
+              ⚡ Full Suite (All Modules)
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleApplyPreset('video')}
+              className="rounded-md border border-line/60 bg-sunken/60 px-2.5 py-1 text-label-micro font-semibold text-ink hover:border-primary hover:bg-accent/15 transition-all"
+            >
+              🎬 Video Focus (+ Thumbnails)
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleApplyPreset('design')}
+              className="rounded-md border border-line/60 bg-sunken/60 px-2.5 py-1 text-label-micro font-semibold text-ink hover:border-primary hover:bg-accent/15 transition-all"
+            >
+              🎨 Graphics &amp; Design Focus
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleApplyPreset('written')}
+              className="rounded-md border border-line/60 bg-sunken/60 px-2.5 py-1 text-label-micro font-semibold text-ink hover:border-primary hover:bg-accent/15 transition-all"
+            >
+              ✍️ Editorial Focus
+            </button>
+          </div>
+        )}
+
+        {/* Pipelines & Modules Checklists */}
+        <div className="space-y-3.5 pt-1">
+          {PIPELINE_SECTIONS.map((section) => {
+            const sectionModuleIds = section.modules.map((m) => m.id)
+            const activeCountInSection = sectionModuleIds.filter((id) =>
+              currentModuleIds.has(id),
+            ).length
+            const isSectionActive = activeCountInSection > 0
+            const isCollapsed = collapsedSections[section.id] ?? false
+
+            return (
+              <div
+                key={section.id}
+                className={cx(
+                  'rounded-lg border transition-all',
+                  isSectionActive
+                    ? 'border-line/80 bg-raised shadow-xs'
+                    : 'border-line/40 bg-sunken/30 opacity-70',
+                )}
+              >
+                {/* Section Header */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 sm:px-4 border-b border-line/40">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isSectionActive}
+                        disabled={!canManage}
+                        onChange={() => void handleToggleEntirePipeline(section)}
+                        className="h-4 w-4 rounded border-line text-primary focus:ring-accent"
+                      />
+                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent/20 text-primary shrink-0">
+                        <Icon name={section.icon} size={15} />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-body-sm font-bold text-ink truncate">
+                            {section.name}
+                          </span>
+                          <span className="rounded bg-sunken px-1.5 py-0.5 font-mono text-label-micro text-ink-dim">
+                            {section.label}
+                          </span>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={cx(
+                        'rounded-full px-2 py-0.5 text-label-micro font-medium',
+                        isSectionActive
+                          ? 'bg-primary/10 text-primary font-bold'
+                          : 'bg-sunken text-ink-faint',
+                      )}
+                    >
+                      {activeCountInSection} of {section.modules.length} active
+                    </span>
+
+                    {canManage && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => void handleSetSectionModules(section, true)}
+                          className="rounded px-2 py-0.5 text-label-micro font-medium text-ink-dim hover:text-primary hover:bg-sunken"
+                          title="Enable all modules in this pipeline"
+                        >
+                          All
+                        </button>
+                        <span className="text-line">|</span>
+                        <button
+                          type="button"
+                          onClick={() => void handleSetSectionModules(section, false)}
+                          className="rounded px-2 py-0.5 text-label-micro font-medium text-ink-dim hover:text-danger hover:bg-sunken"
+                          title="Deselect modules in this pipeline"
+                        >
+                          None
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => toggleSectionCollapse(section.id)}
+                      className="rounded p-1 text-ink-faint hover:text-ink hover:bg-sunken"
+                      aria-label={isCollapsed ? 'Expand modules' : 'Collapse modules'}
+                    >
+                      <Icon
+                        name={isCollapsed ? 'chevron-down' : 'chevron-up'}
+                        size={14}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modules Grid */}
+                {!isCollapsed && (
+                  <div className="p-3 sm:p-4 bg-sunken/20">
+                    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                      {section.modules.map((mod) => {
+                        const isChecked = currentModuleIds.has(mod.id)
+                        return (
+                          <label
+                            key={mod.id}
+                            className={cx(
+                              'relative flex items-start gap-2.5 rounded-lg border p-2.5 text-left transition-all cursor-pointer select-none',
+                              isChecked
+                                ? 'border-primary/50 bg-raised shadow-xs'
+                                : 'border-line/40 bg-sunken/50 opacity-60 hover:opacity-100',
+                              !canManage && 'pointer-events-none',
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={!canManage}
+                              onChange={() => void handleToggleModule(mod.id)}
+                              className="mt-0.5 h-4 w-4 rounded border-line text-primary focus:ring-accent shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <span
+                                  className={cx(
+                                    'text-body-xs font-semibold leading-snug',
+                                    isChecked ? 'text-ink' : 'text-ink-dim',
+                                  )}
+                                >
+                                  {mod.name}
+                                </span>
+                                {mod.subCategory && (
+                                  <span className="rounded bg-accent/15 px-1 py-0.2 font-mono text-label-micro text-primary shrink-0">
+                                    Sub-format
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 text-label-micro text-ink-dim leading-snug line-clamp-2">
+                                {mod.blurb}
+                              </p>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Live Diagnostics & Merged Flow */}
+        <div className="rounded-lg border border-line/70 bg-sunken/60 p-3.5 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-body-xs font-bold text-ink">
+              <span className="text-primary font-bold">🔀</span>
+              Active Merged Workflow Sequence ({workspace.stages.length} stages)
+            </span>
+            <span className="font-mono text-label-micro text-ink-dim">
+              Pipelines: {workspace.selectedPipelines?.join(' + ') || 'video'}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 font-mono text-label-micro">
+            {workspace.stages.map((st, idx) => (
+              <span key={st.id} className="flex items-center gap-1.5">
+                {idx > 0 && <span className="text-ink-faint">→</span>}
+                <span className="rounded border border-line/60 bg-raised px-2 py-0.5 text-ink font-medium">
+                  {st.name}
+                </span>
+              </span>
+            ))}
+          </div>
+
+          <p className="text-label-micro text-ink-dim pt-1 border-t border-line/40">
+            💡 Checking or unchecking modules persistently configures the options visible when creating items in the <strong>New Content</strong> form, updates the Kanban columns, and filters out unselected fields.
+          </p>
+        </div>
+      </div>
+    </Card>
   )
 }
 
@@ -303,6 +766,9 @@ function PipelineTab() {
 
   return (
     <div className="space-y-4">
+      {/* Active Pipelines & Modular Components Configurator */}
+      <PipelineModulesConfigurator onStagesUpdated={(newStages) => setLocal(newStages)} />
+
       <Card>
         <CardHeader
           label="Production pipeline"
@@ -638,6 +1104,235 @@ function PipelineTab() {
         </Card>
       )}
       {confirm.element}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Content & Workflow Segments
+// ---------------------------------------------------------------------------
+
+function WorkflowTab() {
+  const { data, canManage, updateWorkspace, notify } = useStore()
+  if (!data) return null
+  const { workspace } = data
+
+  const allFormats: ProductionFormat[] = ['static', 'video', 'written', 'brief']
+  const enabledFormats = workspace.enabledFormats && workspace.enabledFormats.length > 0
+    ? workspace.enabledFormats
+    : allFormats
+
+  const allSubCategories = getAllSubCategories()
+  const enabledSubCategories = workspace.enabledSubCategories && workspace.enabledSubCategories.length > 0
+    ? workspace.enabledSubCategories
+    : allSubCategories
+
+  const handleToggleFormat = async (fmt: ProductionFormat) => {
+    if (!canManage) return
+    let nextFormats: ProductionFormat[]
+    let nextSubs = [...enabledSubCategories]
+    const def = PRODUCTION_FORMATS.find((f) => f.id === fmt)
+
+    if (enabledFormats.includes(fmt)) {
+      if (enabledFormats.length === 1) {
+        notify('At least one content segment must remain active', 'danger')
+        return
+      }
+      nextFormats = enabledFormats.filter((f) => f !== fmt)
+      if (def) {
+        nextSubs = nextSubs.filter((sc) => !def.subCategories.includes(sc))
+      }
+    } else {
+      nextFormats = [...enabledFormats, fmt]
+      if (def) {
+        nextSubs = Array.from(new Set([...nextSubs, ...def.subCategories]))
+      }
+    }
+
+    await updateWorkspace({
+      enabledFormats: nextFormats,
+      enabledSubCategories: nextSubs,
+      workflowPreset: 'custom',
+    })
+    notify('Content formats updated', 'success')
+  }
+
+  const handleToggleSubCategory = async (subCat: string) => {
+    if (!canManage) return
+    let nextSubs: string[]
+    if (enabledSubCategories.includes(subCat)) {
+      if (enabledSubCategories.length === 1) {
+        notify('At least one subcategory must remain enabled', 'danger')
+        return
+      }
+      nextSubs = enabledSubCategories.filter((sc) => sc !== subCat)
+    } else {
+      nextSubs = [...enabledSubCategories, subCat]
+    }
+
+    await updateWorkspace({
+      enabledSubCategories: nextSubs,
+      workflowPreset: 'custom',
+    })
+  }
+
+  const handleApplyPreset = async (presetId: string) => {
+    if (!canManage) return
+    const preset = getPresetById(presetId)
+    await updateWorkspace({
+      enabledFormats: [...preset.formats],
+      enabledSubCategories: [...preset.subCategories],
+      workflowPreset: presetId,
+    })
+    notify(`Applied ${preset.name}`, 'success')
+  }
+
+  const handleEnableAll = async () => {
+    if (!canManage) return
+    await updateWorkspace({
+      enabledFormats: allFormats,
+      enabledSubCategories: allSubCategories,
+      workflowPreset: 'all',
+    })
+    notify('All content formats and fields enabled', 'success')
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Overview & Quick Presets */}
+      <Card>
+        <CardHeader
+          label="Workflow Presets"
+          title="Content Segments & Fields"
+          action={
+            canManage ? (
+              <Button size="sm" variant="ghost" icon="sparkle" onClick={() => void handleEnableAll()}>
+                Enable All Fields
+              </Button>
+            ) : undefined
+          }
+        />
+        <div className="space-y-4 p-widget">
+          <p className="text-body-sm text-ink-dim">
+            Control which content segments and subcategory fields appear in the <strong>New Content</strong> form.
+            Whenever someone creates content, they will only see the options kept here. You can always get back here and add options as you need.
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {WORKFLOW_PRESETS.map((p) => {
+              const isCurrent = workspace.workflowPreset === p.id
+              return (
+                <div
+                  key={p.id}
+                  className={cx(
+                    'rounded-lg border p-3 flex flex-col justify-between transition-all',
+                    isCurrent
+                      ? 'border-primary/80 bg-accent/15 ring-1 ring-primary/40'
+                      : 'border-line/60 bg-sunken/40',
+                  )}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-body-xs font-bold text-ink">{p.name}</span>
+                      {isCurrent && (
+                        <span className="rounded bg-primary/20 px-1.5 py-0.5 text-label-micro font-bold text-primary">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-label-micro text-ink-dim leading-snug">{p.tagline}</p>
+                  </div>
+                  {canManage && !isCurrent && (
+                    <Button
+                      size="sm"
+                      variant="quiet"
+                      className="mt-3 w-full text-label-micro"
+                      onClick={() => void handleApplyPreset(p.id)}
+                    >
+                      Apply preset
+                    </Button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </Card>
+
+      {/* Granular Segment & Subcategory Toggles */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {PRODUCTION_FORMATS.map((fmt) => {
+          const isEnabled = enabledFormats.includes(fmt.id)
+          const activeSubs = fmt.subCategories.filter((sc) => enabledSubCategories.includes(sc))
+
+          return (
+            <Card key={fmt.id} className={cx(!isEnabled && 'opacity-70')}>
+              <CardHeader
+                label={`Format · ${activeSubs.length} of ${fmt.subCategories.length} options active`}
+                title={fmt.label}
+                action={
+                  canManage ? (
+                    <Toggle
+                      checked={isEnabled}
+                      onChange={() => void handleToggleFormat(fmt.id)}
+                      label={`Enable ${fmt.label}`}
+                    />
+                  ) : undefined
+                }
+              />
+              <div className="space-y-3 p-widget">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded bg-accent/25 text-primary">
+                    <Icon name={fmt.icon} size={15} />
+                  </span>
+                  <div>
+                    <span className="block text-body-xs font-semibold text-ink">{fmt.tagline}</span>
+                    <span className="text-label-micro text-ink-dim">{fmt.description}</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-line/40">
+                  <span className="block text-label-micro font-bold text-ink-faint uppercase mb-1.5">
+                    Subcategories & Fields ({activeSubs.length} active):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {fmt.subCategories.map((subCat) => {
+                      const isSubActive = isEnabled && enabledSubCategories.includes(subCat)
+                      return (
+                        <button
+                          key={subCat}
+                          type="button"
+                          disabled={!canManage || !isEnabled}
+                          onClick={() => void handleToggleSubCategory(subCat)}
+                          className={cx(
+                            'rounded-md px-2 py-1 text-body-xs transition-all flex items-center gap-1.5',
+                            isSubActive
+                              ? 'border border-primary/50 bg-primary/10 text-primary font-medium'
+                              : 'border border-line/50 bg-sunken/60 text-ink-faint line-through opacity-60 hover:opacity-100',
+                            (!canManage || !isEnabled) && 'cursor-default',
+                          )}
+                          title={isSubActive ? 'Click to disable' : 'Click to enable'}
+                        >
+                          <span
+                            className={cx(
+                              'h-1.5 w-1.5 rounded-full',
+                              isSubActive ? 'bg-primary' : 'bg-ink-faint',
+                            )}
+                          />
+                          <span>{subCat}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Modular Pipeline & Feature Configuration */}
+      <PipelineModulesConfigurator />
     </div>
   )
 }

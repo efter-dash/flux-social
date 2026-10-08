@@ -166,8 +166,13 @@ export function PipelinePage() {
               onChange={setLayout}
             />
             {canEdit && (
-              <Button variant="primary" icon="plus" onClick={() => navigate('/content?new=1')}>
-                <span className="hidden sm:inline">New content</span>
+              <Button
+                variant="primary"
+                icon="plus"
+                onClick={() => navigate('/content?new=1')}
+                className="h-[42px] px-5 sm:px-6 text-body-sm font-semibold rounded-lg shadow-sm"
+              >
+                <span>New content</span>
               </Button>
             )}
           </>

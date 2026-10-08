@@ -17,6 +17,7 @@ import type {
   Workspace,
   WeeklyReview,
   AccessLevel,
+  ProductionFormat,
 } from './types'
 import { EMPTY_METRICS } from './types'
 import { DEFAULT_TAXONOMIES } from './templates'
@@ -74,6 +75,11 @@ export function newWorkspace(opts: {
   contentPrefix?: string
   weekStartsOn?: 0 | 1
   taxonomies?: Taxonomies
+  enabledFormats?: ProductionFormat[]
+  enabledSubCategories?: string[]
+  enabledModules?: string[]
+  workflowPreset?: string
+  categories?: string[]
 }): Workspace {
   const selectedPipelines = opts.templateIds && opts.templateIds.length > 0
     ? opts.templateIds
@@ -82,10 +88,24 @@ export function newWorkspace(opts: {
   const { stages, report } = stagesFromPipelines(selectedPipelines)
   const baseTax = opts.taxonomies ?? structuredClone(DEFAULT_TAXONOMIES)
 
+  if (opts.categories && opts.categories.length > 0) {
+    baseTax.categories = [...opts.categories]
+  }
+
   // Merge content types and roles from selected pipelines
   if (report.contentTypes.length > 0) {
     const combined = Array.from(new Set([...report.contentTypes, ...baseTax.contentTypes]))
     baseTax.contentTypes = combined
+  }
+
+  if (opts.enabledSubCategories && opts.enabledSubCategories.length > 0) {
+    // Ensure enabled subcategories are prominent
+    const enabledSet = new Set(opts.enabledSubCategories)
+    const activeFirst = [
+      ...opts.enabledSubCategories,
+      ...baseTax.contentTypes.filter((ct) => !enabledSet.has(ct)),
+    ]
+    baseTax.contentTypes = Array.from(new Set(activeFirst))
   }
 
   return {
@@ -103,6 +123,10 @@ export function newWorkspace(opts: {
     stages,
     taxonomies: baseTax,
     selectedPipelines,
+    enabledFormats: opts.enabledFormats,
+    enabledSubCategories: opts.enabledSubCategories,
+    enabledModules: opts.enabledModules,
+    workflowPreset: opts.workflowPreset,
     createdAt: new Date().toISOString(),
     createdBy: opts.createdBy,
   }
@@ -151,6 +175,8 @@ export function newContentItem(opts: {
   updatedBy: string
   month?: string
   plannedPublishDate?: string
+  enabledFormats?: ProductionFormat[]
+  enabledSubCategories?: string[]
 }): ContentItem {
   const stageStates: Record<string, ContentItem['stageStates'][string]> = {}
   const stageAssignees: Record<string, string> = {}
@@ -162,12 +188,44 @@ export function newContentItem(opts: {
   }
   const nowISO = new Date().toISOString()
   const planned = opts.plannedPublishDate ?? ''
-  const videoType =
-    opts.taxonomies.contentTypes.find((t) =>
-      ['Video Graphic', 'Reel', 'Short Video', 'Video'].includes(t),
-    ) ||
+
+  const initialFormat: ProductionFormat =
+    opts.enabledFormats && opts.enabledFormats.length > 0 ? opts.enabledFormats[0] : 'video'
+
+  const activeSub =
+    opts.enabledSubCategories && opts.enabledSubCategories.length > 0
+      ? opts.enabledSubCategories[0]
+      : initialFormat === 'video'
+        ? 'Reels & Shorts (9:16)'
+        : initialFormat === 'static'
+          ? 'Thumbnails'
+          : initialFormat === 'written'
+            ? 'Blog Post'
+            : 'Creative Brief'
+
+  const initialContentType =
+    activeSub ||
     opts.taxonomies.contentTypes[0] ||
-    'Video Graphic'
+    (initialFormat === 'video' ? 'Reel' : 'Post')
+
+  const initialMeta: ContentItem['productionMeta'] = {
+    subCategory: activeSub,
+    ...(initialFormat === 'video'
+      ? {
+          shootStyle: 'Studio set & lighting',
+          aspectRatio: '9:16 (Vertical Reel/TikTok)',
+          duration: '30s–60s',
+        }
+      : initialFormat === 'static'
+        ? {
+            aspectRatio: '1:1 (Square Feed)',
+          }
+        : initialFormat === 'written'
+          ? {
+              targetWordCount: '800 words',
+            }
+          : {}),
+  }
 
   return {
     id: uid('cn_'),
@@ -176,7 +234,7 @@ export function newContentItem(opts: {
     month: opts.month ?? (planned ? monthKey(planned) : monthKey(today())),
     title: '',
     topic: '',
-    contentType: videoType,
+    contentType: initialContentType,
     category:
       opts.taxonomies.categories.find((c) => !c.toLowerCase().includes('thumbnail')) ??
       opts.taxonomies.categories[0] ??
@@ -186,12 +244,8 @@ export function newContentItem(opts: {
     objective: '',
     audience: '',
     ownerId: opts.ownerId,
-    productionFormat: 'video',
-    productionMeta: {
-      shootStyle: 'Studio set & lighting',
-      aspectRatio: '9:16 (Vertical Reel/TikTok)',
-      duration: '30s–60s',
-    },
+    productionFormat: initialFormat,
+    productionMeta: initialMeta,
     stageAssignees,
     stageDeadlines,
     stageStates,

@@ -26,6 +26,38 @@ export interface ProductionFormatDef {
   relevantStageKeys: string[]
 }
 
+export interface WorkflowPresetDef {
+  id: string
+  name: string
+  badge: string
+  tagline: string
+  description: string
+  pipelines: string[]
+  formats: ProductionFormat[]
+  subCategories: string[]
+  categories?: string[]
+}
+
+export const CORE_TAXONOMY_CATEGORIES = [
+  'Product',
+  'Behind the Scenes',
+  'Educational',
+  'Promotional',
+  'Community',
+]
+
+export const FULL_TAXONOMY_CATEGORIES = [
+  'Product',
+  'Brand',
+  'Educational',
+  'Promotional',
+  'Customer Story',
+  'Behind the Scenes',
+  'Announcement',
+  'Community',
+  'Seasonal',
+]
+
 export const PRODUCTION_FORMATS: ProductionFormatDef[] = [
   {
     id: 'static',
@@ -72,6 +104,97 @@ export const PRODUCTION_FORMATS: ProductionFormatDef[] = [
     relevantStageKeys: ['brief', 'production', 'review', 'client-approval'],
   },
 ]
+
+export const WORKFLOW_PRESETS: WorkflowPresetDef[] = [
+  {
+    id: 'all',
+    name: 'All-in-One Studio (Full Suite)',
+    badge: 'Full Suite',
+    tagline: 'All pipelines & all fields included',
+    description: 'Complete suite with Video, Static Graphics, Write-Up, and Briefing workflows. Ideal for teams that want every option active.',
+    pipelines: ['video', 'design'],
+    formats: ['video', 'static', 'written', 'brief'],
+    subCategories: [
+      'Reels & Shorts (9:16)',
+      'Long-Form Video (16:9)',
+      'Video Graphics & Motion Promo',
+      'Interview & Podcast Video',
+      'Thumbnails',
+      'Carousel',
+      'Graphic Post',
+      'Banner / Header',
+      'Infographic',
+      'Story / Vertical Graphic',
+      'Blog Post',
+      'Newsletter',
+      'Social Thread',
+      'Case Study & Article',
+      'Campaign Brief',
+      'Client Deliverable & Scope',
+      'Creative Concept & Pitch',
+    ],
+    categories: FULL_TAXONOMY_CATEGORIES,
+  },
+  {
+    id: 'video',
+    name: 'Video Production Studio',
+    badge: 'Video Focused',
+    tagline: 'Reels, long-form, podcasts & thumbnails',
+    description: 'Streamlined exclusively for video creation, editing, and YouTube/IG thumbnails. Hides written articles and corporate briefs.',
+    pipelines: ['video'],
+    formats: ['video', 'static'],
+    subCategories: [
+      'Reels & Shorts (9:16)',
+      'Long-Form Video (16:9)',
+      'Video Graphics & Motion Promo',
+      'Interview & Podcast Video',
+      'Thumbnails',
+    ],
+    categories: CORE_TAXONOMY_CATEGORIES,
+  },
+  {
+    id: 'graphics',
+    name: 'Graphics & Visual Design',
+    badge: 'Graphics Focused',
+    tagline: 'Thumbnails, carousels, banners & posters',
+    description: 'Focused on graphic artists and digital visual designers. Omits video shooting, editing, and editorial writing.',
+    pipelines: ['design'],
+    formats: ['static'],
+    subCategories: [
+      'Thumbnails',
+      'Carousel',
+      'Graphic Post',
+      'Banner / Header',
+      'Infographic',
+      'Story / Vertical Graphic',
+    ],
+    categories: CORE_TAXONOMY_CATEGORIES,
+  },
+  {
+    id: 'written',
+    name: 'Editorial & Copywriting',
+    badge: 'Editorial Focused',
+    tagline: 'Blogs, newsletters, threads & articles',
+    description: 'Tailored for publications, newsletter writers, and copywriters. Streamlines the workflow to focus solely on written pieces.',
+    pipelines: ['written'],
+    formats: ['written'],
+    subCategories: [
+      'Blog Post',
+      'Newsletter',
+      'Social Thread',
+      'Case Study & Article',
+    ],
+    categories: ['Educational', 'Customer Story', 'Brand', 'Product', 'Seasonal'],
+  },
+]
+
+export function getAllSubCategories(): string[] {
+  return PRODUCTION_FORMATS.flatMap((f) => f.subCategories)
+}
+
+export function getPresetById(id: string): WorkflowPresetDef {
+  return WORKFLOW_PRESETS.find((p) => p.id === id) || WORKFLOW_PRESETS[0]
+}
 
 /**
  * Automatically infers the production format from existing item properties.
