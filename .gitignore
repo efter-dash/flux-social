@@ -12,3 +12,6 @@ tsconfig.tsbuildinfo
 # Editor
 .vscode
 .idea
+
+# Vite development service worker
+dev-dist
