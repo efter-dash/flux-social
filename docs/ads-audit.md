@@ -65,3 +65,12 @@ Investigation followed the installed REA skill's evidence-first/source-first gui
 `npm run test:ads-audit` (Node 22.18+ / 24+ with native TypeScript stripping) tests parsing, malformed imports, duplicate prevention, metric separation, protected converters/ties, age/tracking/freshness checks, status filtering, unknown revenue, Pareto boundaries, hook/hold formulas, endpoint restrictions, local-model preflight, split/final NDJSON frames, cancellation, malformed/error/incomplete responses and oversized contexts.
 
 `npm run build` validates TypeScript and produces the production/PWA bundle. Browser verification used fictional demo data in a disposable local QA workspace. No real advertising data was accessed. Live model quality/performance must be verified with the user's installed model; Ollama was not running during implementation.
+
+
+## Campaign-level exports
+
+The importer also detects Meta's campaign-level export (`Campaign name`, without `Ad name`). It automatically reads reporting dates and currency from `Amount spent (XXX)`, and groups results using the **exact Result indicator**. Purchases and messaging conversations are displayed separately with their own spend and recalculated cost per result. It includes campaign delivery/status, per-campaign reach/frequency, attribution windows, spend bars, and an all-campaigns/active-only scope control.
+
+All exported statuses are included by default in campaign summary mode; use the explicit active-only filter to exclude completed/inactive campaigns. Every displayed total, event group, local-model context and Markdown export follows the selected scope. Account reach/frequency are not calculated from summed campaign reach, and missing revenue/click/video data are not invented. Campaign-only data never receives ad-level protected-winner classifications or pause/scale decisions. Mixed reporting windows and duplicate campaign rows are rejected.
+
+A real Meta campaign export was tested locally through the file picker, reconciled independently with Python Decimal arithmetic, and checked in both scope views. The real CSV, campaign names and metrics are not included in the repository or test fixtures. Automated regression tests use fictional examples. Browser export was verified; live model generation remained unavailable because the local Ollama endpoint was offline.
