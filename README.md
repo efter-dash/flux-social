@@ -188,3 +188,7 @@ Browsers require CORS authorization to communicate with localhost ports:
 ## License
 
 MIT © 2026. Free and open source for individuals and teams.
+
+### Local Meta Ads Audit
+
+Open **Insight → Ads Audit** to import Meta Ads CSV exports, inspect deterministic performance and video diagnostics, and generate explanations with installed local Ollama models. The dashboard includes demo data, evidence gaps, protected winners and Markdown export. See [setup, supported columns, methodology and limitations](docs/ads-audit.md). Run `npm run test:ads-audit` on a recent Node version to check the audit engine and model transport.
